@@ -36,6 +36,7 @@ struct PixelCache {
   int bandRows;     // rows held in the band buffer
   int bandStart;    // image-local row index of band buffer row 0
   int flushedRows;  // image-local rows already written to file
+  uint8_t outputBpp;
   HalFile file;
   std::string cachePathStr;
   bool ok;
@@ -51,6 +52,7 @@ struct PixelCache {
         bandRows(0),
         bandStart(0),
         flushedRows(0),
+        outputBpp(2),
         ok(false) {}
   PixelCache(const PixelCache&) = delete;
   PixelCache& operator=(const PixelCache&) = delete;
@@ -60,12 +62,13 @@ struct PixelCache {
 
   // Open the cache file, write the header, and allocate a band buffer big enough
   // to hold the tallest single decode block (maxBlockDstRows output rows).
-  bool begin(const std::string& cachePath, int w, int h, int ox, int oy, int maxBlockDstRows) {
+  bool begin(const std::string& cachePath, int w, int h, int ox, int oy, int maxBlockDstRows, uint8_t bpp = 2) {
     width = w;
     height = h;
     originX = ox;
     originY = oy;
-    bytesPerRow = (w + 3) / 4;  // 2 bits per pixel, 4 pixels per byte
+    outputBpp = bpp;
+    bytesPerRow = (w * outputBpp + 7) / 8;
     bandStart = 0;
     flushedRows = 0;
     ok = false;
@@ -106,7 +109,8 @@ struct PixelCache {
 
     uint16_t w16 = (uint16_t)w;
     uint16_t h16 = (uint16_t)h;
-    if (file.write(&w16, 2) != 2 || file.write(&h16, 2) != 2) {
+    uint8_t bpp8 = outputBpp;
+    if (file.write(&w16, 2) != 2 || file.write(&h16, 2) != 2 || file.write(&bpp8, 1) != 1) {
       LOG_ERR("IMG", "Failed to write cache header: %s", cachePath.c_str());
       abort();
       return false;

@@ -126,8 +126,20 @@ void HalDisplay::cleanupGrayscaleBuffers(const uint8_t* bwBuffer) { einkDisplay.
 
 void HalDisplay::displayGrayBuffer(bool turnOffScreen) { einkDisplay.displayGrayBuffer(turnOffScreen); }
 
-void HalDisplay::writeGrayscalePlaneStrip(bool lsbPlane, const uint8_t* rows, uint16_t yStart, uint16_t numRows) {
-  einkDisplay.writeGrayscalePlaneStrip(lsbPlane ? EInkDisplay::GRAY_PLANE_LSB : EInkDisplay::GRAY_PLANE_MSB, rows,
+void HalDisplay::displayGray8Bit(const uint8_t* grayBuf, RefreshMode mode, bool turnOffScreen) {
+  einkDisplay.displayGray8Bit(grayBuf, convertRefreshMode(mode), turnOffScreen);
+}
+
+void HalDisplay::writeGrayscale8BitStrip(const uint8_t* rows, uint16_t yStart, uint16_t numRows) {
+  einkDisplay.writeGrayscale8BitStrip(rows, yStart, numRows);
+}
+
+uint8_t* HalDisplay::getInternalGrayBuffer() { return einkDisplay.getInternalGrayBuffer(); }
+
+bool HalDisplay::supportsGrayscale8Bit() const { return einkDisplay.supportsGrayscale8Bit(); }
+
+void HalDisplay::writeGrayscalePlaneStrip(GrayPlane plane, const uint8_t* rows, uint16_t yStart, uint16_t numRows) {
+  einkDisplay.writeGrayscalePlaneStrip(plane == GRAY_PLANE_LSB ? EInkDisplay::GRAY_PLANE_LSB : EInkDisplay::GRAY_PLANE_MSB, rows,
                                        yStart, numRows);
 }
 

@@ -18,6 +18,7 @@
 #include <iterator>
 #include <limits>
 
+#include "../../util/ActivityUtils.h"
 #include "../../util/BookmarkFile.h"
 #include "AchievementsStore.h"
 #include "BookmarkEntry.h"
@@ -198,9 +199,10 @@ void EpubReaderActivity::onEnter() {
     return static_cast<Epub*>(ctx)->extractItemToFile(src, dest);
   });
 
-  // Configure screen orientation based on settings
+  // Configure screen orientation and color depth based on settings
   // NOTE: This affects layout math and must be applied before any render calls.
   ReaderUtils::applyOrientation(renderer, SETTINGS.orientation);
+  ActivityUtils::applyColorDepth(renderer, SETTINGS.colorDepth);
 
   epub->setupCacheDir();
 
@@ -1852,17 +1854,24 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
     }
   };
 
+  // Re-apply settings in case they changed (e.g. returning from settings menu)
+  ActivityUtils::applyColorDepth(renderer, SETTINGS.colorDepth);
+  ReaderUtils::applyOrientation(renderer, SETTINGS.orientation);
+
   const bool manualRefreshPending = forcedRefreshPending;
   forcedRefreshPending = false;
+
+  const bool hardwareSupports8Bit = renderer.supportsGrayscale8Bit();
+  const bool needsTextGrayscale = SETTINGS.textAntiAliasing && renderer.getColorDepth() >= 2;
+  // On H716, we use the grayscale pipeline for images even in 1-bit mode to allow dithering.
+  const bool needsAnyGrayscale = needsTextGrayscale || (pageHasImages && (renderer.getColorDepth() >= 2 || hardwareSupports8Bit));
+  const bool tiledGrayscale = needsAnyGrayscale && renderer.supportsStripGrayscale();
+
   // The reader starts with zero here, which means the normal refresh cycle
   // would use a HALF refresh for its first page. Keep that same clean base for
-  // image pages: their double-FAST path otherwise runs directly over the
-  // retained frame after a silent restart (for example, when returning from
-  // KOReader sync), leaving the old UI mixed with the image.
+  // image pages.
   const bool cleanImageBasePending = manualRefreshPending || pagesUntilFullRefresh <= 1;
-  const bool needsTextGrayscale = SETTINGS.textAntiAliasing;
-  const bool needsAnyGrayscale = needsTextGrayscale || pageHasImages;
-  const bool tiledGrayscale = needsAnyGrayscale && renderer.supportsStripGrayscale();
+
   // Whole-plane buffering only pays when the BW refresh genuinely runs async
   // underneath it; on blocking panels (X3) it would just spend ~50 KB for the
   // identical serial timing. Image pages take the blocking double-FAST path
@@ -1870,8 +1879,13 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
   // nothing in flight to overlap.
   const bool overlapRefresh = tiledGrayscale && renderer.supportsAsyncRefresh() && !pageHasImages;
   auto renderGrayscalePass = [&]() {
-    if (needsTextGrayscale) {
+    // In 8-bit mode we must render everything because the driver doesn't merge with the B/W base.
+    // In 2-bit plane mode (X4), we only render what needs grayscale (AA text or images).
+    if (needsTextGrayscale || renderer.getRenderMode() == GfxRenderer::GRAYSCALE_8BIT) {
       renderPageWithGuideLines();
+      if (renderer.getRenderMode() == GfxRenderer::GRAYSCALE_8BIT) {
+        renderStatusBar();
+      }
     } else {
       page->renderImages(renderer, fontId, orientedMarginLeft, orientedMarginTop);
     }
@@ -1888,12 +1902,18 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
   renderStatusBar();
   const auto tBwRender = millis();
 
+  const auto mode = (pagesUntilFullRefresh <= 1) ? HalDisplay::HALF_REFRESH : HalDisplay::FAST_REFRESH;
+  if (ActivityUtils::renderGrayscale8Bit(renderer, "ERS", [&] { renderGrayscalePass(); }, mode)) {
+    if (pagesUntilFullRefresh <= 1) {
+      pagesUntilFullRefresh = SETTINGS.getRefreshFrequency();
+    } else {
+      pagesUntilFullRefresh--;
+    }
+    return;
+  }
+
   if (pageHasImages) {
-    // Double FAST_REFRESH with selective image blanking (pablohc's technique):
-    // HALF_REFRESH sets particles too firmly for the grayscale LUT to adjust.
-    // Instead, blank only the image area and do two fast refreshes.
-    // Step 1: Display page with image area blanked (text appears, image area white)
-    // Step 2: Re-render with images and display again (images appear clean)
+    // Legacy X4 image blanking logic (non-8-bit hardware)
     int16_t imgX, imgY, imgW, imgH;
     if (page->getImageBoundingBox(imgX, imgY, imgW, imgH)) {
       // Image pages intentionally bypass the regular refresh cadence. Preserve
@@ -1919,8 +1939,7 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
     // regardless of residue.
     pagesUntilFullRefresh = 1;
   } else {
-    // Async form: start the waveform and return so the grayscale plane rendering
-    // below overlaps the panel's refresh time instead of following it.
+    // Only perform the regular B/W refresh if we didn't already handle it via the 8-bit pipeline above.
     ReaderUtils::displayWithRefreshCycle(renderer, pagesUntilFullRefresh, overlapRefresh);
   }
   const auto tDisplay = millis();
@@ -1936,6 +1955,7 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
   if (tiledGrayscale) {
     constexpr int STRIP_ROWS = 80;
     const int gh = renderer.getDisplayHeight();
+    const int gw = renderer.getDisplayWidth();
     const int gwBytes = renderer.getDisplayWidthBytes();
     const size_t planeBytes = static_cast<size_t>(gwBytes) * gh;
 
@@ -1948,6 +1968,10 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
       renderGrayscalePass();
       renderer.endStripTarget();
     };
+
+    if (ActivityUtils::renderGrayscale8Bit(renderer, "ERS", [&] { renderGrayscalePass(); })) {
+      return;
+    }
 
     // Tiered on heap pressure: two plane buffers hide both plane renders
     // inside the refresh wait; one hides the LSB render (its buffer is reused
@@ -1966,11 +1990,22 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
     // rationale as BACKGROUND_BUILD_MIN_MAX_ALLOC).
     constexpr size_t PLANE_BUF_MAX_ALLOC_RESERVE = 16 * 1024;
     const auto planeBufFits = [planeBytes] {
-      return ESP.getFreeHeap() >= planeBytes + PLANE_BUF_HEADROOM &&
-             ESP.getMaxAllocHeap() >= planeBytes + PLANE_BUF_MAX_ALLOC_RESERVE;
+      return ESP.getFreeHeap() >= planeBytes + PLANE_BUF_HEADROOM;
     };
-    auto lsbPlaneBuf = (overlapRefresh && planeBufFits()) ? makeUniqueNoThrow<uint8_t[]>(planeBytes) : nullptr;
-    auto msbPlaneBuf = (lsbPlaneBuf && planeBufFits()) ? makeUniqueNoThrow<uint8_t[]>(planeBytes) : nullptr;
+
+    uint8_t* lsbPlanePtr = nullptr;
+    if (overlapRefresh && planeBufFits()) {
+      lsbPlanePtr = (uint8_t*)heap_caps_malloc(planeBytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+      if (!lsbPlanePtr) lsbPlanePtr = (uint8_t*)malloc(planeBytes);
+    }
+    auto lsbPlaneBuf = std::unique_ptr<uint8_t[], void (*)(void*)>(lsbPlanePtr, [](void* p) { free(p); });
+
+    uint8_t* msbPlanePtr = nullptr;
+    if (lsbPlaneBuf && planeBufFits()) {
+      msbPlanePtr = (uint8_t*)heap_caps_malloc(planeBytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+      if (!msbPlanePtr) msbPlanePtr = (uint8_t*)malloc(planeBytes);
+    }
+    auto msbPlaneBuf = std::unique_ptr<uint8_t[], void (*)(void*)>(msbPlanePtr, [](void* p) { free(p); });
 
     if (lsbPlaneBuf) {
       renderPlaneToBuffer(true, lsbPlaneBuf.get());
@@ -2007,10 +2042,14 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
       // Per-strip scratch tier: blocking panels (X3) and the OOM fallback.
       // The strip writes below need the panel idle, so wait out any pending
       // async refresh first (no-op on blocking panels).
-      auto scratch = makeUniqueNoThrow<uint8_t[]>(static_cast<size_t>(gwBytes) * STRIP_ROWS);
+      const size_t scratchBytes = static_cast<size_t>(gwBytes) * STRIP_ROWS;
+      uint8_t* scratchPtr = (uint8_t*)heap_caps_malloc(scratchBytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+      if (!scratchPtr) scratchPtr = (uint8_t*)malloc(scratchBytes);
+      auto scratch = std::unique_ptr<uint8_t[], void (*)(void*)>(scratchPtr, [](void* p) { free(p); });
+
       renderer.waitRefreshComplete();
       if (!scratch) {
-        LOG_ERR("ERS", "OOM: grayscale strip scratch (%d bytes); skipping AA this page", gwBytes * STRIP_ROWS);
+        LOG_ERR("ERS", "OOM: grayscale strip scratch (%d bytes); skipping AA this page", (int)scratchBytes);
         if (overlapRefresh) {
           // The BW refresh ran the shadow-free async path, so controller RAM's
           // differential baseline was never rebuilt. Even with AA skipped it must

@@ -6,13 +6,13 @@
 #include <Logging.h>
 #include <Memory.h>
 #include <PNGdec.h>
+#include <DitherUtils.h>
 
 #include <cstdlib>
 #include <memory>
 #include <new>
 
 #include "DirectPixelWriter.h"
-#include "DitherUtils.h"
 #include "PixelCache.h"
 
 namespace {
@@ -237,6 +237,7 @@ int pngDrawCallback(PNGDRAW* pDraw) {
   // Pre-compute orientation and render-mode state once per callback.
   DirectPixelWriter pw;
   pw.init(*ctx->renderer);
+  const auto renderMode = ctx->renderer->getRenderMode();
 
   for (int dstY = firstDstY; dstY < endDstY; dstY++) {
     ctx->lastDstY = dstY;
@@ -251,12 +252,13 @@ int pngDrawCallback(PNGDRAW* pDraw) {
     // past the band buffer; finalize() then drops the partial file.
     bool caching = ctx->caching;
     DirectCacheWriter cw;
+    const uint8_t cacheBpp = ctx->renderer->supportsGrayscale8Bit() ? 8 : 2;
     if (caching) {
       if (!ctx->cache.advanceTo(dstY)) {
         caching = false;
         ctx->caching = false;
       } else {
-        cw.init(ctx->cache.buffer, ctx->cache.bytesPerRow, ctx->cache.bandRows, ctx->cache.originX);
+        cw.init(ctx->cache.buffer, ctx->cache.bytesPerRow, ctx->cache.bandRows, ctx->cache.originX, cacheBpp);
         cw.beginRow(outY, ctx->config->y + ctx->cache.bandStart);
       }
     }
@@ -269,15 +271,21 @@ int pngDrawCallback(PNGDRAW* pDraw) {
       if (outX < screenWidth) {
         uint8_t gray = ctx->grayLineBuffer[srcX];
 
-        uint8_t ditheredGray;
-        if (useDithering) {
-          ditheredGray = applyBayerDither4Level(gray, outX, outY);
+        if (ctx->renderer->getRenderMode() == GfxRenderer::GRAYSCALE_8BIT) {
+          uint8_t finalGray = useDithering ? applyBayerDither16Level(gray, outX, outY) : gray;
+          pw.writePixel(outX, finalGray);
+          if (caching) cw.writePixel(outX, finalGray);
         } else {
-          ditheredGray = gray / 85;
-          if (ditheredGray > 3) ditheredGray = 3;
+          uint8_t ditheredGray;
+          if (useDithering) {
+            ditheredGray = applyBayerDither4Level(gray, outX, outY);
+          } else {
+            ditheredGray = gray / 85;
+            if (ditheredGray > 3) ditheredGray = 3;
+          }
+          pw.writePixel(outX, ditheredGray);
+          if (caching) cw.writePixel(outX, ditheredGray);
         }
-        pw.writePixel(outX, ditheredGray);
-        if (caching) cw.writePixel(outX, ditheredGray);
       }
 
       // Bresenham-style stepping: advance srcX based on ratio srcWidth/dstWidth
@@ -425,7 +433,8 @@ bool PngToFramebufferConverter::decodeToFramebuffer(const std::string& imagePath
   // re-decode on every one of an image page's ~14 render passes.
   ctx.caching = !config.cachePath.empty();
   if (ctx.caching) {
-    if (!ctx.cache.begin(config.cachePath, ctx.dstWidth, ctx.dstHeight, config.x, config.y, 1)) {
+    const uint8_t cacheBpp = renderer.supportsGrayscale8Bit() ? 8 : 2;
+    if (!ctx.cache.begin(config.cachePath, ctx.dstWidth, ctx.dstHeight, config.x, config.y, 1, cacheBpp)) {
       LOG_ERR("PNG", "Failed to start cache stream, continuing without caching");
       ctx.caching = false;
     }

@@ -2,6 +2,7 @@
 
 #include <GfxRenderer.h>
 #include <HalDisplay.h>
+#include <DitherUtils.h>
 #include <stdint.h>
 
 #include <cassert>
@@ -17,6 +18,7 @@
 struct DirectPixelWriter {
   uint8_t* fb;
   GfxRenderer::RenderMode mode;
+  uint8_t colorDepth;
   uint16_t displayWidthBytes;  // Runtime framebuffer stride (X4: 100, X3: 99)
   // Active write target: for tiled grayscale, fb is the band scratch, originY is
   // the band's top physical row, and clipRows is the band height. Off-band
@@ -40,6 +42,7 @@ struct DirectPixelWriter {
     originY = renderer.getWriteOriginY();
     clipRows = renderer.getWriteRows();
     mode = renderer.getRenderMode();
+    colorDepth = renderer.getColorDepth();
     displayWidthBytes = renderer.getDisplayWidthBytes();
 
     const int phyW = renderer.getDisplayWidth();
@@ -141,32 +144,12 @@ struct DirectPixelWriter {
     if (colStart > colEnd) colStart = colEnd;
   }
 
-  // Write a single 2-bit dithered pixel value to the framebuffer.
+  // Write a single pixel value.
+  //   - GfxRenderer::BW/GRAYSCALE_LSB/MSB: value is 2-bit dithered (0..3)
+  //   - GfxRenderer::GRAYSCALE_8BIT: value is 8-bit grayscale (0..255)
   // Must be called after beginRow() for the current row.
   // No bounds checking — caller guarantees coordinates are valid.
-  inline void writePixel(int logicalX, uint8_t pixelValue) const {
-    // Determine whether to draw based on render mode
-    bool draw;
-    bool state;
-    switch (mode) {
-      case GfxRenderer::BW:
-        draw = (pixelValue < 3);
-        state = true;
-        break;
-      case GfxRenderer::GRAYSCALE_MSB:
-        draw = (pixelValue == 1 || pixelValue == 2);
-        state = false;
-        break;
-      case GfxRenderer::GRAYSCALE_LSB:
-        draw = (pixelValue == 1);
-        state = false;
-        break;
-      default:
-        return;
-    }
-
-    if (!draw) return;
-
+  inline void writePixel(int logicalX, uint8_t value) const {
     const int phyX = rowPhyXBase + logicalX * phyXStepX;
     const int phyY = rowPhyYBase + logicalX * phyYStepX;
 
@@ -175,14 +158,47 @@ struct DirectPixelWriter {
     const int sy = phyY - originY;
     if (static_cast<unsigned>(sy) >= static_cast<unsigned>(clipRows)) return;
 
-    const uint16_t byteIndex = static_cast<uint16_t>(sy * displayWidthBytes + (phyX >> 3));
-    const uint8_t bitMask = 1 << (7 - (phyX & 7));
-
-    if (state) {
-      fb[byteIndex] &= ~bitMask;  // Clear bit (draw black)
-    } else {
-      fb[byteIndex] |= bitMask;  // Set bit (draw white)
+    if (mode == GfxRenderer::GRAYSCALE_8BIT) {
+      const uint32_t pixelIndex = static_cast<uint32_t>(sy) * (displayWidthBytes * 8) + phyX;
+      if (colorDepth == 4) {
+        // 16 levels: Just write raw value, gradients are smooth enough.
+        fb[pixelIndex] = value;
+      } else if (colorDepth == 2) {
+        // 4 levels: Simple Bayer dither.
+        const uint8_t bayer = bayer4x4[phyY & 3][phyX & 3];
+        int adjusted = static_cast<int>(value) + (static_cast<int>(bayer) - 8) * 5;
+        if (adjusted < 0) adjusted = 0;
+        if (adjusted > 255) adjusted = 255;
+        fb[pixelIndex] = (adjusted >> 6) * 85;
+      } else {
+        // 1-bit: Newspaper-style dither.
+        const uint8_t bayer = bayer4x4[phyY & 3][phyX & 3];
+        fb[pixelIndex] = (value < (bayer * 16)) ? 0x00 : 0xFF;
+      }
+      return;
     }
+
+    // Determine whether to draw based on render mode
+    bool draw;
+    switch (mode) {
+      case GfxRenderer::BW:
+        draw = (value < 3);
+        break;
+      case GfxRenderer::GRAYSCALE_MSB:
+        draw = (value == 1 || value == 2);
+        break;
+      case GfxRenderer::GRAYSCALE_LSB:
+        draw = (value == 1);
+        break;
+      default:
+        return;
+    }
+
+    if (!draw) return;
+
+    const uint32_t byteIndex = static_cast<uint32_t>(sy) * displayWidthBytes + (phyX >> 3);
+    const uint8_t bitMask = 1 << (7 - (phyX & 7));
+    fb[byteIndex] &= ~bitMask;  // Clear bit (draw black)
   }
 };
 
@@ -201,13 +217,15 @@ struct DirectCacheWriter {
   int bandRows;
   int originX;
   uint8_t* rowPtr;  // Pre-computed for current row; nullptr if row is out of band
+  uint8_t outputBpp;
 
-  void init(uint8_t* cacheBuffer, int cacheBytesPerRow, int cacheBandRows, int cacheOriginX) {
+  void init(uint8_t* cacheBuffer, int cacheBytesPerRow, int cacheBandRows, int cacheOriginX, uint8_t bpp = 2) {
     buffer = cacheBuffer;
     bytesPerRow = cacheBytesPerRow;
     bandRows = cacheBandRows;
     originX = cacheOriginX;
     rowPtr = nullptr;
+    outputBpp = bpp;
   }
 
   // Call once per row before the column loop. Drops rows outside the band.
@@ -218,11 +236,15 @@ struct DirectCacheWriter {
                  : nullptr;
   }
 
-  // Write a 2-bit pixel value. Drops the write if the row is out of band or the
+  // Write a pixel value. Drops the write if the row is out of band or the
   // column is out of range.
   inline void writePixel(int screenX, uint8_t value) const {
     if (!rowPtr) return;
     const int localX = screenX - originX;
+    if (outputBpp == 8) {
+      rowPtr[localX] = value;
+      return;
+    }
     const int byteIdx = localX >> 2;  // localX / 4
     if (static_cast<unsigned>(byteIdx) >= static_cast<unsigned>(bytesPerRow)) return;
     const int bitShift = 6 - (localX & 3) * 2;  // MSB first: pixel 0 at bits 6-7

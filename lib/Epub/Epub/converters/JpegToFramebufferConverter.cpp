@@ -6,13 +6,13 @@
 #include <JPEGDEC.h>
 #include <Logging.h>
 #include <Memory.h>
+#include <DitherUtils.h>
 
 #include <cstdlib>
 #include <memory>
 #include <new>
 
 #include "DirectPixelWriter.h"
-#include "DitherUtils.h"
 #include "PixelCache.h"
 
 namespace {
@@ -182,6 +182,7 @@ int jpegDrawCallback(JPEGDRAW* pDraw) {
   // Pre-compute orientation and render-mode state once per callback invocation
   DirectPixelWriter pw;
   pw.init(renderer);
+  const auto renderMode = renderer.getRenderMode();
 
   // The cache streams to disk one MCU-row band at a time. Flushing rows below
   // this block (raster order guarantees they are final) repositions the band;
@@ -190,12 +191,13 @@ int jpegDrawCallback(JPEGDRAW* pDraw) {
   // the partial file) rather than writing past the band buffer.
   DirectCacheWriter cw;
   int cacheOriginY = 0;
+  const uint8_t cacheBpp = renderer.supportsGrayscale8Bit() ? 8 : 2;
   if (caching) {
     if (!ctx->cache.advanceTo(dstYStart)) {
       caching = false;
       ctx->caching = false;
     } else {
-      cw.init(ctx->cache.buffer, ctx->cache.bytesPerRow, ctx->cache.bandRows, ctx->cache.originX);
+      cw.init(ctx->cache.buffer, ctx->cache.bytesPerRow, ctx->cache.bandRows, ctx->cache.originX, cacheBpp);
       cacheOriginY = ctx->config->y + ctx->cache.bandStart;
     }
   }
@@ -210,15 +212,21 @@ int jpegDrawCallback(JPEGDRAW* pDraw) {
       for (int dstX = dstXStart; dstX < dstXEnd; dstX++) {
         const int outX = cfgX + dstX;
         uint8_t gray = row[dstX - blockX];
-        uint8_t dithered;
-        if (useDithering) {
-          dithered = applyBayerDither4Level(gray, outX, outY);
+        if (renderMode == GfxRenderer::GRAYSCALE_8BIT) {
+          uint8_t finalGray = useDithering ? applyBayerDither16Level(gray, outX, outY) : gray;
+          pw.writePixel(outX, finalGray);
+          if (caching) cw.writePixel(outX, finalGray);
         } else {
-          dithered = gray / 85;
-          if (dithered > 3) dithered = 3;
+          uint8_t dithered;
+          if (useDithering) {
+            dithered = applyBayerDither4Level(gray, outX, outY);
+          } else {
+            dithered = gray / 85;
+            if (dithered > 3) dithered = 3;
+          }
+          pw.writePixel(outX, dithered);
+          if (caching) cw.writePixel(outX, dithered);
         }
-        pw.writePixel(outX, dithered);
-        if (caching) cw.writePixel(outX, dithered);
       }
     }
     return 1;
@@ -269,15 +277,21 @@ int jpegDrawCallback(JPEGDRAW* pDraw) {
         int bot = ((int)row1[lx0] * fxInv + (int)row1[lx1] * fx) >> FP_SHIFT;
         uint8_t gray = (uint8_t)((top * fyInv + bot * fy) >> FP_SHIFT);
 
-        uint8_t dithered;
-        if (useDithering) {
-          dithered = applyBayerDither4Level(gray, outX, outY);
+        if (renderMode == GfxRenderer::GRAYSCALE_8BIT) {
+          uint8_t finalGray = useDithering ? applyBayerDither16Level(gray, outX, outY) : gray;
+          pw.writePixel(outX, finalGray);
+          if (caching) cw.writePixel(outX, finalGray);
         } else {
-          dithered = gray / 85;
-          if (dithered > 3) dithered = 3;
+          uint8_t dithered;
+          if (useDithering) {
+            dithered = applyBayerDither4Level(gray, outX, outY);
+          } else {
+            dithered = gray / 85;
+            if (dithered > 3) dithered = 3;
+          }
+          pw.writePixel(outX, dithered);
+          if (caching) cw.writePixel(outX, dithered);
         }
-        pw.writePixel(outX, dithered);
-        if (caching) cw.writePixel(outX, dithered);
       }
 
       // Interior (no X boundary checks — lx0 and lx0+1 guaranteed in bounds)
@@ -292,15 +306,21 @@ int jpegDrawCallback(JPEGDRAW* pDraw) {
         int bot = ((int)row1[lx0] * fxInv + (int)row1[lx0 + 1] * fx) >> FP_SHIFT;
         uint8_t gray = (uint8_t)((top * fyInv + bot * fy) >> FP_SHIFT);
 
-        uint8_t dithered;
-        if (useDithering) {
-          dithered = applyBayerDither4Level(gray, outX, outY);
+        if (renderMode == GfxRenderer::GRAYSCALE_8BIT) {
+          uint8_t finalGray = useDithering ? applyBayerDither16Level(gray, outX, outY) : gray;
+          pw.writePixel(outX, finalGray);
+          if (caching) cw.writePixel(outX, finalGray);
         } else {
-          dithered = gray / 85;
-          if (dithered > 3) dithered = 3;
+          uint8_t dithered;
+          if (useDithering) {
+            dithered = applyBayerDither4Level(gray, outX, outY);
+          } else {
+            dithered = gray / 85;
+            if (dithered > 3) dithered = 3;
+          }
+          pw.writePixel(outX, dithered);
+          if (caching) cw.writePixel(outX, dithered);
         }
-        pw.writePixel(outX, dithered);
-        if (caching) cw.writePixel(outX, dithered);
       }
 
       // Right edge (with X boundary clamping)
@@ -318,15 +338,21 @@ int jpegDrawCallback(JPEGDRAW* pDraw) {
         int bot = ((int)row1[lx0] * fxInv + (int)row1[lx1] * fx) >> FP_SHIFT;
         uint8_t gray = (uint8_t)((top * fyInv + bot * fy) >> FP_SHIFT);
 
-        uint8_t dithered;
-        if (useDithering) {
-          dithered = applyBayerDither4Level(gray, outX, outY);
+        if (renderMode == GfxRenderer::GRAYSCALE_8BIT) {
+          uint8_t finalGray = useDithering ? applyBayerDither16Level(gray, outX, outY) : gray;
+          pw.writePixel(outX, finalGray);
+          if (caching) cw.writePixel(outX, finalGray);
         } else {
-          dithered = gray / 85;
-          if (dithered > 3) dithered = 3;
+          uint8_t dithered;
+          if (useDithering) {
+            dithered = applyBayerDither4Level(gray, outX, outY);
+          } else {
+            dithered = gray / 85;
+            if (dithered > 3) dithered = 3;
+          }
+          pw.writePixel(outX, dithered);
+          if (caching) cw.writePixel(outX, dithered);
         }
-        pw.writePixel(outX, dithered);
-        if (caching) cw.writePixel(outX, dithered);
       }
     }
     return 1;
@@ -351,15 +377,21 @@ int jpegDrawCallback(JPEGDRAW* pDraw) {
       if (lx >= validW) lx = validW - 1;
       uint8_t gray = row[lx];
 
-      uint8_t dithered;
-      if (useDithering) {
-        dithered = applyBayerDither4Level(gray, outX, outY);
+      if (renderMode == GfxRenderer::GRAYSCALE_8BIT) {
+        uint8_t finalGray = useDithering ? applyBayerDither16Level(gray, outX, outY) : gray;
+        pw.writePixel(outX, finalGray);
+        if (caching) cw.writePixel(outX, finalGray);
       } else {
-        dithered = gray / 85;
-        if (dithered > 3) dithered = 3;
+        uint8_t dithered;
+        if (useDithering) {
+          dithered = applyBayerDither4Level(gray, outX, outY);
+        } else {
+          dithered = gray / 85;
+          if (dithered > 3) dithered = 3;
+        }
+        pw.writePixel(outX, dithered);
+        if (caching) cw.writePixel(outX, dithered);
       }
-      pw.writePixel(outX, dithered);
-      if (caching) cw.writePixel(outX, dithered);
     }
   }
 
@@ -493,7 +525,8 @@ bool JpegToFramebufferConverter::decodeToFramebuffer(const std::string& imagePat
   ctx.caching = !config.cachePath.empty();
   if (ctx.caching) {
     const int maxBlockDstRows = (int)(((int64_t)16 * ctx.fineScaleFPY) >> FP_SHIFT) + 2;
-    if (!ctx.cache.begin(config.cachePath, destWidth, destHeight, config.x, config.y, maxBlockDstRows)) {
+    const uint8_t cacheBpp = renderer.supportsGrayscale8Bit() ? 8 : 2;
+    if (!ctx.cache.begin(config.cachePath, destWidth, destHeight, config.x, config.y, maxBlockDstRows, cacheBpp)) {
       LOG_ERR("JPG", "Failed to start cache stream, continuing without caching");
       ctx.caching = false;
     }

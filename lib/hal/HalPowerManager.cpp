@@ -9,6 +9,10 @@
 
 #include <cassert>
 
+#if FREEINK_DEVICE_LILYGO_H716
+#include <BoardT5H716.h>
+#endif
+
 #include "HalGPIO.h"
 
 HalPowerManager powerManager;  // Singleton instance
@@ -58,6 +62,9 @@ void HalPowerManager::setPowerSaving(bool enabled) {
 }
 
 void HalPowerManager::startDeepSleep(HalGPIO& gpio) const {
+#if FREEINK_DEVICE_LILYGO_H716
+  BoardT5H716::deinitForSleep();
+#endif
 #ifdef ENABLE_SERIAL_LOG
   // Tear down HWCDC so the host sees a clean disconnect and the peripheral
   // doesn't hold power domains that interfere with USB-powered GPIO wake.
@@ -86,9 +93,13 @@ void HalPowerManager::startDeepSleep(HalGPIO& gpio) const {
   // guarantees that ordering).
   freeink::PowerManager::powerDownRailsForSleep();
 
-  // Waits for the power button to be physically released (so holding it doesn't
-  // immediately wake the device again), then arms the wake source and sleeps.
-  freeink::PowerManager::deepSleepUntilPowerButton();
+  // On S3/H716, explicitly manage GPIO state and hold before sleeping to avoid
+  // pins floating or being isolated into a high-current/unstable state.
+  freeink::PowerManager::waitForPowerButtonRelease();
+  esp_sleep_config_gpio_isolate();
+  freeink::PowerManager::armPowerButtonWakeup();
+  gpio_deep_sleep_hold_en();
+  esp_deep_sleep_start();
 }
 
 uint16_t HalPowerManager::getBatteryPercentage() const {

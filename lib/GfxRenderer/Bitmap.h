@@ -67,7 +67,7 @@ class Bitmap {
   explicit Bitmap(HalFile& file, bool dithering = false) : file(file), dithering(dithering) {}
   ~Bitmap();
   BmpReaderError parseHeaders();
-  BmpReaderError readNextRow(uint8_t* data, uint8_t* rowBuffer) const;
+  BmpReaderError readNextRow(uint8_t* data, uint8_t* rowBuffer, uint8_t outputBpp = 2) const;
   BmpReaderError rewindToData() const;
   int getWidth() const { return width; }
   int getHeight() const { return height; }

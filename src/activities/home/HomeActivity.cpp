@@ -21,6 +21,7 @@
 #include "RecentBooksStore.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
+#include "util/ActivityUtils.h"
 #include "util/BookCoverLoader.h"
 
 namespace {
@@ -118,6 +119,7 @@ void HomeActivity::loadRecentCovers(int coverHeight) {
 
   int progress = 0;
   for (RecentBook& book : recentBooks) {
+    yield();
     const int currentProgress = progress++;
     const bool isEpub = FsHelpers::hasEpubExtension(book.path);
     const bool isXtc = FsHelpers::hasXtcExtension(book.path);
@@ -404,30 +406,51 @@ void HomeActivity::loop() {
 
   int tx = 0;
   int ty = 0;
-  if (!recentBooks.empty() && mappedInput.wasScreenTouchDown(tx, ty) && tx >= 0 && tx < renderer.getScreenWidth() &&
-      ty >= metrics.homeTopPadding && ty < metrics.homeTopPadding + metrics.homeCoverTileHeight) {
-    int touchedBook = 0;
-    if (isCarousel) {
-      const int centerBook =
-          selectorIndex < bookCount ? selectorIndex : std::clamp(lastCarouselBookIndex, 0, bookCount - 1);
-      if (tx < renderer.getScreenWidth() / 3) {
-        touchedBook = ButtonNavigator::previousIndex(centerBook, bookCount);
-      } else if (tx >= renderer.getScreenWidth() * 2 / 3) {
-        touchedBook = ButtonNavigator::nextIndex(centerBook, bookCount);
-      } else {
-        touchedBook = centerBook;
+  if (!recentBooks.empty() && mappedInput.wasScreenTouchDown(tx, ty)) {
+    const auto& theme = UITheme::getInstance().getTheme();
+    int touchedIndex = -1;
+    if (theme.homeIndexFromPoint(renderer, tx, ty, static_cast<int>(recentBooks.size()), menuCount,
+                                 touchedIndex)) {
+      if (selectorIndex != touchedIndex) {
+        selectorIndex = touchedIndex;
+        requestUpdate();
       }
-      lastCarouselBookIndex = touchedBook;
+      return;
     }
-    if (selectorIndex != touchedBook) {
-      selectorIndex = touchedBook;
-      requestUpdate();
+
+    if (ty >= metrics.homeTopPadding && ty < metrics.homeTopPadding + metrics.homeCoverTileHeight) {
+      int touchedBook = 0;
+      if (isCarousel) {
+        const int centerBook =
+            selectorIndex < bookCount ? selectorIndex : std::clamp(lastCarouselBookIndex, 0, bookCount - 1);
+        if (tx < renderer.getScreenWidth() / 3) {
+          touchedBook = ButtonNavigator::previousIndex(centerBook, bookCount);
+        } else if (tx >= renderer.getScreenWidth() * 2 / 3) {
+          touchedBook = ButtonNavigator::nextIndex(centerBook, bookCount);
+        } else {
+          touchedBook = centerBook;
+        }
+        lastCarouselBookIndex = touchedBook;
+      }
+      if (selectorIndex != touchedBook) {
+        selectorIndex = touchedBook;
+        requestUpdate();
+      }
+      return;
     }
-    return;
   }
 
   if (!recentBooks.empty() &&
       mappedInput.wasTapInRect(0, metrics.homeTopPadding, renderer.getScreenWidth(), metrics.homeCoverTileHeight)) {
+    const auto& theme = UITheme::getInstance().getTheme();
+    int touchedIndex = -1;
+    if (theme.homeIndexFromPoint(renderer, tx, ty, static_cast<int>(recentBooks.size()), menuCount,
+                                 touchedIndex)) {
+       selectorIndex = touchedIndex;
+       activateSelection();
+       return;
+    }
+
     if (!isCarousel) selectorIndex = 0;
     activateSelection();
     return;
@@ -485,9 +508,8 @@ void HomeActivity::render(RenderLock&&) {
   const auto pageHeight = renderer.getScreenHeight();
   const bool isCarousel =
       static_cast<CrossPointSettings::UI_THEME>(SETTINGS.uiTheme) == CrossPointSettings::UI_THEME::LYRA_CAROUSEL;
-
-  renderer.clearScreen();
-  bool bufferRestored = coverBufferStored && restoreCoverBuffer();
+  ActivityUtils::prepareRender(renderer);
+  bool bufferRestored = (renderer.getRenderMode() != GfxRenderer::GRAYSCALE_8BIT) && coverBufferStored && restoreCoverBuffer();
 
   GUI.drawHeader(renderer, Rect{0, metrics.topPadding, pageWidth, metrics.homeTopPadding},
                  metrics.homeShowRecentBookTitle && !recentBooks.empty() ? recentBooks[0].title.c_str() : nullptr);
@@ -538,7 +560,7 @@ void HomeActivity::render(RenderLock&&) {
     GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
   }
 
-  renderer.displayBuffer();
+  ActivityUtils::finishRender(renderer);
 
   if (!firstRenderDone) {
     firstRenderDone = true;

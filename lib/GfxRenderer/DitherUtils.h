@@ -25,3 +25,15 @@ inline uint8_t applyBayerDither4Level(uint8_t gray, int x, int y) {
   if (adjusted < 192) return 2;
   return 3;
 }
+
+// Apply Bayer dithering for 16 levels (4-bit)
+inline uint8_t applyBayerDither16Level(uint8_t gray, int x, int y) {
+  int bayer = bayer4x4[y & 3][x & 3];
+  int dither = (bayer - 8);  // Scale to +/- 8 (approx half of quantization step 17)
+
+  int adjusted = gray + dither;
+  if (adjusted < 0) adjusted = 0;
+  if (adjusted > 255) adjusted = 255;
+
+  return (uint8_t)adjusted; // syncToPainter8Bit will handle the 16-level mapping
+}

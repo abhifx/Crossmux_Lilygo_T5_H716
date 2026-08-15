@@ -111,3 +111,19 @@ void clearLastLogs() {
   logHead = 0;
   rtcLogMagic = LOG_RTC_MAGIC;
 }
+
+MySerialImpl MySerialImpl::instance;
+
+size_t MySerialImpl::write(uint8_t b) {
+  if (logSerial) return logSerial.write(b);
+  return 0;
+}
+
+size_t MySerialImpl::write(const uint8_t* buffer, size_t size) {
+  if (logSerial) return logSerial.write(buffer, size);
+  return 0;
+}
+
+void MySerialImpl::flush() {
+  if (logSerial) logSerial.flush();
+}

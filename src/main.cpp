@@ -35,6 +35,7 @@
 #include "components/UITheme.h"
 #include "fontIds.h"
 #include "images/LoadingIcon.h"
+#include "util/ActivityUtils.h"
 #include "util/ButtonNavigator.h"
 #include "util/ScreenshotUtil.h"
 
@@ -349,7 +350,8 @@ void enterDeepSleep(bool fromTimeout = false) {
 
 bool setupDisplayAndFonts(bool seamless = false) {
   display.begin(seamless);
-  renderer.begin();
+  renderer.begin(display.getInternalGrayBuffer());
+  ActivityUtils::applyColorDepth(renderer, SETTINGS.colorDepth);
   activityManager.begin();
   LOG_DBG("MAIN", "Display initialized");
 
@@ -393,19 +395,16 @@ void setup() {
   t1 = millis();
 
 #ifdef ENABLE_SERIAL_LOG
-  // Earliest possible Serial setup. The 250 ms stall before begin() lets the
-  // USB Serial/JTAG peripheral finish power-on and lets the host complete USB
-  // enumeration before we touch the CDC state — otherwise cold boot races
-  // and the host has to be physically replugged for logs to flow. Warm reboot
-  // worked without the delay because USB was already enumerated.
+  // Give the USB peripheral time to enumerate so early logs aren't lost on cold boot.
   delay(250);
   Serial.begin(115200);
-#if LOG_SERIAL_HAS_TX_TIMEOUT
-  logSerial.setTxTimeoutMs(1);  // This is a load-bearing 1. Do not modify.
-#endif
 #endif
 
+  esp_rom_printf("[BOOT] Starting setup...\n");
+
   HalSystem::begin();
+  esp_rom_printf("[BOOT] HalSystem initialized\n");
+
   const bool otaPendingAtBoot = HalOtaSlot::runningImageState() == HalOtaSlot::RunningImageState::PendingVerify;
 
   // Read-and-clear so a panic later in setup() doesn't loop into silent reboot.
@@ -416,15 +415,27 @@ void setup() {
   silentRebootMagic = 0;
   silentRebootTarget = 0;
 
+  esp_rom_printf("[BOOT] Initializing GPIO...\n");
   gpio.begin();
-  powerManager.begin();
-  halTiltSensor.begin();
-  halClock.begin();
+  esp_rom_printf("[BOOT] GPIO initialized\n");
 
-  LOG_INF("MAIN", "Hardware detect: %s", gpio.deviceIsX3() ? "X3" : "X4");
+  esp_rom_printf("[BOOT] Initializing PowerManager...\n");
+  powerManager.begin();
+  esp_rom_printf("[BOOT] PowerManager initialized\n");
+
+  esp_rom_printf("[BOOT] Initializing TiltSensor...\n");
+  halTiltSensor.begin();
+  esp_rom_printf("[BOOT] TiltSensor initialized\n");
+
+  esp_rom_printf("[BOOT] Initializing Clock...\n");
+  halClock.begin();
+  esp_rom_printf("[BOOT] Clock initialized\n");
+
+  LOG_INF("BOOT", "Hardware detected: %s", gpio.deviceIsH716() ? "H716" : (gpio.deviceIsX3() ? "X3" : "X4"));
 
   // SD Card Initialization
   // We need 6 open files concurrently when parsing a new chapter
+  esp_rom_printf("[BOOT] Initializing Storage...\n");
   if (!Storage.begin()) {
     LOG_ERR("MAIN", "SD card initialization failed");
     const bool fontsReady = setupDisplayAndFonts(isSilentReboot);
@@ -455,8 +466,20 @@ void setup() {
   ButtonNavigator::setMappedInputManager(mappedInputManager);
 
   const auto wakeupReason = gpio.getWakeupReason();
+
+  bool bypassWakeVerification = false;
+#if FREEINK_DEVICE_LILYGO_H716
+  if (gpio.deviceIsH716()) {
+    bypassWakeVerification = true;
+  }
+#endif
+
   switch (wakeupReason) {
     case HalGPIO::WakeupReason::PowerButton:
+      if (bypassWakeVerification) {
+        LOG_INF("BOOT", "H716: Bypassing power button verification");
+        break;
+      }
       LOG_DBG("MAIN", "Verifying power button press duration");
       if (!gpio.verifyPowerButtonWakeup(SETTINGS.getPowerButtonDuration(),
                                         SETTINGS.shortPwrBtn == CrossPointSettings::SHORT_PWRBTN::SLEEP)) {
@@ -615,6 +638,9 @@ void loop() {
   halClock.update();
 
   renderer.setFadingFix(SETTINGS.fadingFix);
+  if (SETTINGS.colorDepth == CrossPointSettings::BIT_1) renderer.setColorDepth(1);
+  else if (SETTINGS.colorDepth == CrossPointSettings::BIT_4) renderer.setColorDepth(4);
+  else renderer.setColorDepth(2);
 
   if (Serial && millis() - lastMemPrint >= 10000) {
     LOG_INF("MEM", "Free: %d bytes, Total: %d bytes, Min Free: %d bytes, MaxAlloc: %d bytes", ESP.getFreeHeap(),
@@ -635,6 +661,23 @@ void loop() {
         uint8_t* buf = display.getFrameBuffer();
         logSerial.write(buf, bufferSize);
         logSerial.printf("SCREENSHOT_END\n");
+      } else if (cmd == "SCREENSHOT_GRAY") {
+        uint8_t* buf = display.getInternalGrayBuffer();
+        if (buf) {
+          const uint32_t bufferSize = renderer.getDisplayWidth() * renderer.getDisplayHeight();
+          logSerial.printf("SCREENSHOT_GRAY_START:%d\n", bufferSize);
+          logSerial.write(buf, bufferSize);
+          logSerial.printf("SCREENSHOT_GRAY_END\n");
+        } else {
+          logSerial.printf("SCREENSHOT_GRAY_FAILED\n");
+        }
+      } else if (cmd == "CLEAR_CACHE") {
+        Storage.remove(CrossPointSettings::getFilePath());
+        logSerial.printf("SETTINGS_CLEARED\n");
+        ESP.restart();
+      } else if (cmd == "DELETE_PXC") {
+        Storage.remove("/.crosspoint/epub_2895706302/img_0_51.pxc");
+        logSerial.printf("PXC_DELETED\n");
       }
     }
   }

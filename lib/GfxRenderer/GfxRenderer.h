@@ -28,7 +28,7 @@ enum Color : uint8_t { Clear = 0x00, White = 0x01, LightGray = 0x05, DarkGray = 
 
 class GfxRenderer {
  public:
-  enum RenderMode { BW, GRAYSCALE_LSB, GRAYSCALE_MSB };
+  enum RenderMode { BW, GRAYSCALE_LSB, GRAYSCALE_MSB, GRAYSCALE_8BIT };
 
   // Logical screen orientation from the perspective of callers
   enum Orientation {
@@ -45,9 +45,11 @@ class GfxRenderer {
   HalDisplay& display;
   RenderMode renderMode;
   Orientation orientation;
+  uint8_t colorDepth = 2;
   bool fadingFix;
   mutable uint8_t syntheticBoldPixels = 0;
   uint8_t* frameBuffer = nullptr;
+  uint8_t* grayBuffer = nullptr;  // 8-bit buffer for 16-level grayscale
   uint16_t panelWidth = HalDisplay::DISPLAY_WIDTH;
   uint16_t panelHeight = HalDisplay::DISPLAY_HEIGHT;
   uint16_t panelWidthBytes = HalDisplay::DISPLAY_WIDTH_BYTES;
@@ -136,7 +138,7 @@ class GfxRenderer {
   static constexpr int VIEWABLE_MARGIN_LEFT = 3;
 
   // Setup
-  void begin();  // must be called right after display.begin()
+  void begin(uint8_t* externalGrayBuffer = nullptr);  // must be called right after display.begin()
   void insertFont(int fontId, EpdFontFamily font);
   // Clears both the flash-font map and any SD-font registration for fontId.
   // Coupled to avoid dangling SdCardFont* in sdCardFonts_ when callers free
@@ -181,6 +183,10 @@ class GfxRenderer {
 
   // Fading fix control
   void setFadingFix(const bool enabled) { fadingFix = enabled; }
+
+  // Color depth control
+  void setColorDepth(uint8_t bits) { colorDepth = bits; }
+  uint8_t getColorDepth() const { return colorDepth; }
 
   // Screen ops
   int getScreenWidth() const;
@@ -230,9 +236,12 @@ class GfxRenderer {
   // Active pixel-write target for raw writers (DirectPixelWriter) that bypass
   // drawPixel for speed. When a strip target is active these return the band
   // scratch plus its physical-row origin and extent; otherwise the full
-  // framebuffer ([0, panelHeight)). Writers subtract the origin and clip to the
-  // extent, so they honor tiled-grayscale banding without per-pixel method calls.
-  uint8_t* getWriteTarget() const { return _stripActive ? _stripBuf : frameBuffer; }
+  // buffer ([0, panelHeight)). For 8-bit grayscale, returns the gray buffer.
+  uint8_t* getWriteTarget() const {
+    if (_stripActive) return _stripBuf;
+    if (renderMode == GRAYSCALE_8BIT) return grayBuffer;
+    return frameBuffer;
+  }
   int getWriteOriginY() const { return _stripActive ? _stripY0 : 0; }
   int getWriteRows() const { return _stripActive ? _stripRows : panelHeight; }
 
@@ -265,6 +274,7 @@ class GfxRenderer {
 
   // Drawing
   void drawPixel(int x, int y, bool state = true) const;
+  void drawPixelGray8Bit(int x, int y, uint8_t gray) const;
   void drawLine(int x1, int y1, int x2, int y2, bool state = true) const;
   void drawLine(int x1, int y1, int x2, int y2, int lineWidth, bool state) const;
   void drawArc(int maxRadius, int cx, int cy, int xDir, int yDir, int lineWidth, bool state) const;
@@ -363,12 +373,16 @@ class GfxRenderer {
   void copyGrayscaleLsbBuffers() const;
   void copyGrayscaleMsbBuffers() const;
   void displayGrayBuffer() const;
+  void displayGray8Bit(const uint8_t* grayBuf, HalDisplay::RefreshMode mode = HalDisplay::FAST_REFRESH) const;
 
   // Tiled grayscale (X4): stream one band of a plane straight to controller RAM
   // from `scratch` (panelWidthBytes * numRows, physical rows [yStart, yStart+
   // numRows)), bypassing the framebuffer. supportsStripGrayscale() gates use.
   void writeGrayscalePlaneStrip(bool lsbPlane, const uint8_t* scratch, int yStart, int numRows) const;
+  void writeGrayscale8BitStrip(const uint8_t* rows, int yStart, int numRows) const;
   bool supportsStripGrayscale() const;
+  bool supportsGrayscale8Bit() const { return display.supportsGrayscale8Bit(); }
+  uint8_t* getInternalGrayBuffer() const { return display.getInternalGrayBuffer(); }
   bool storeBwBuffer();    // Returns true if buffer was stored successfully
   void restoreBwBuffer();  // Restore and free the stored buffer
   void cleanupGrayscaleWithFrameBuffer() const;

@@ -86,10 +86,17 @@ class HalDisplay {
 
   void displayGrayBuffer(bool turnOffScreen = false);
 
+  // 16-level (8-bit) grayscale
+  void displayGray8Bit(const uint8_t* grayBuf, RefreshMode mode = FAST_REFRESH, bool turnOffScreen = false);
+  void writeGrayscale8BitStrip(const uint8_t* rows, uint16_t yStart, uint16_t numRows);
+  uint8_t* getInternalGrayBuffer();
+  bool supportsGrayscale8Bit() const;
+
   // Tiled grayscale: stream one band of a plane (lsbPlane selects LSB/MSB RAM)
   // straight to the controller; supportsStripGrayscale() gates the path. See
   // EInkDisplay::writeGrayscalePlaneStrip.
-  void writeGrayscalePlaneStrip(bool lsbPlane, const uint8_t* rows, uint16_t yStart, uint16_t numRows);
+  enum GrayPlane { GRAY_PLANE_LSB, GRAY_PLANE_MSB };
+  void writeGrayscalePlaneStrip(GrayPlane plane, const uint8_t* rows, uint16_t yStart, uint16_t numRows);
   bool supportsStripGrayscale() const;
 
   // Runtime geometry passthrough

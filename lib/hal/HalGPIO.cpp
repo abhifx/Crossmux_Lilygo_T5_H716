@@ -7,6 +7,10 @@
 #include <XteinkDetect.h>
 #include <esp_sleep.h>
 
+#if FREEINK_DEVICE_LILYGO_H716
+#include <BoardT5H716.h>
+#endif
+
 // Global HalGPIO instance
 HalGPIO gpio;
 
@@ -113,7 +117,11 @@ HalGPIO::DeviceType detectDeviceTypeWithFingerprint() {
 }  // namespace
 
 void HalGPIO::begin() {
-#if FREEINK_MCU_C3
+#if FREEINK_DEVICE_LILYGO_H716
+  _deviceType = DeviceType::H716;
+  BoardConfig::selectDevice(BoardConfig::Board::LilyGoT5H716);
+  BoardT5H716::begin();
+#elif FREEINK_MCU_C3
   _deviceType = detectDeviceTypeWithFingerprint();
   BoardConfig::selectDevice(deviceIsX3() ? BoardConfig::Board::XteinkX3 : BoardConfig::Board::XteinkX4);
 
@@ -140,6 +148,13 @@ void HalGPIO::begin() {
 
 void HalGPIO::update() {
   inputMgr.update();
+  if (inputMgr.isDebouncePending()) {
+    // The SDK commits a state change after it remains stable for more than
+    // 5 ms. Re-poll before the loop's next ~10-50 ms sample so short physical
+    // button presses are not discarded.
+    delay(6);
+    inputMgr.update();
+  }
   const bool connected = isUsbConnected();
   usbStateChanged = (connected != lastUsbConnected);
   lastUsbConnected = connected;
@@ -233,6 +248,11 @@ bool HalGPIO::verifyPowerButtonWakeup(uint16_t requiredDurationMs, bool shortPre
 }
 
 bool HalGPIO::isUsbConnected() const {
+#if FREEINK_DEVICE_LILYGO_H716
+  // Use physical USB detect pin (GPIO 43) for H716 Standard.
+  // I2C charger status is less reliable during early boot and can loop on bus errors.
+  return digitalRead(43) == HIGH;
+#endif
   if (deviceIsX3()) {
     // X3: infer USB/charging via BQ27220 Current() register (0x0C, signed mA).
     // Positive current means charging.

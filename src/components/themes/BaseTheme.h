@@ -279,6 +279,11 @@ class BaseTheme {
   virtual void drawHomeMenu(GfxRenderer& renderer, Rect rect, int buttonCount, int selectedIndex,
                             const std::function<std::string(int index)>& buttonLabel,
                             const std::function<UIIcon(int index)>& rowIcon) const;
+  virtual bool homeIndexFromPoint(const GfxRenderer& renderer, int x, int y, int bookCount, int menuCount,
+                                  int& index) const {
+    (void)renderer; (void)x; (void)y; (void)bookCount; (void)menuCount; (void)index;
+    return false;
+  }
   virtual Rect drawPopup(const GfxRenderer& renderer, const char* message) const;
   // Draws the active theme's selected-row background and returns whether foreground text should be black.
   bool drawSelectionBackground(const GfxRenderer& renderer, Rect rect) const;

@@ -12,6 +12,7 @@
 
 #include "FontCacheManager.h"
 #include "Memory.h"
+#include "DitherUtils.h"
 
 namespace {
 
@@ -117,8 +118,9 @@ void GfxRenderer::ensureSdCardFontReady(int fontId, const std::deque<std::string
   }
 }
 
-void GfxRenderer::begin() {
+void GfxRenderer::begin(uint8_t* externalGrayBuffer) {
   frameBuffer = display.getFrameBuffer();
+  grayBuffer = externalGrayBuffer;
   if (!frameBuffer) {
     LOG_ERR("GFX", "!! No framebuffer");
     assert(false);
@@ -329,6 +331,12 @@ static uint8_t get2BitCoverage(const uint8_t* bitmap, const int pixelPosition) {
 
 static void draw2BitGlyphPixel(const GfxRenderer& renderer, const GfxRenderer::RenderMode renderMode, const int x,
                                const int y, const bool pixelState, const uint8_t coverage) {
+  const uint8_t depth = renderer.getColorDepth();
+  if (depth == 1) {
+    if (coverage >= 2) renderer.drawPixel(x, y, pixelState);
+    return;
+  }
+
   // Font coverage is 0=white, 1=light gray, 2=dark gray, 3=black.
   switch (renderMode) {
     case GfxRenderer::BW:
@@ -339,6 +347,16 @@ static void draw2BitGlyphPixel(const GfxRenderer& renderer, const GfxRenderer::R
       break;
     case GfxRenderer::GRAYSCALE_MSB:
       if (coverage == 1 || coverage == 2) renderer.drawPixel(x, y, false);
+      break;
+    case GfxRenderer::GRAYSCALE_8BIT:
+      if (coverage != 0) {
+        // Map 0..3 coverage to 255..0 (Assuming black ink on white background)
+        // 3 -> 0 (Black), 2 -> 85 (Dark Gray), 1 -> 170 (Light Gray), 0 -> 255 (White)
+        uint8_t gray = 255 - (coverage * 85);
+        if (depth == 2) gray = (gray >> 6) * 85;
+        if (!pixelState) gray = 255 - gray;  // Invert for white ink
+        renderer.drawPixelGray8Bit(x, y, gray);
+      }
       break;
   }
 }
@@ -549,10 +567,7 @@ void GfxRenderer::drawPixel(const int x, const int y, const bool state) const {
     return;
   }
 
-  int phyX = 0;
-  int phyY = 0;
-
-  // Note: this call should be inlined for better performance
+  int phyX = 0, phyY = 0;
   rotateCoordinates(orientation, x, y, &phyX, &phyY, panelWidth, panelHeight);
 
   // Bounds checking against runtime panel dimensions
@@ -561,16 +576,21 @@ void GfxRenderer::drawPixel(const int x, const int y, const bool state) const {
     return;
   }
 
-  // Tiled grayscale: redirect writes to the strip scratch and clip to the
-  // current band. Single predictable branch on the hot per-pixel path.
-  uint8_t* target = frameBuffer;
-  uint32_t rowY = static_cast<uint32_t>(phyY);
-  if (_stripActive) {
-    if (phyY < _stripY0 || phyY >= _stripY0 + _stripRows) {
-      return;  // pixel outside the band currently being rendered
-    }
-    target = _stripBuf;
-    rowY = static_cast<uint32_t>(phyY - _stripY0);
+  const int originY = getWriteOriginY();
+  const int writeRows = getWriteRows();
+  if (phyY < originY || phyY >= originY + writeRows) {
+    return;
+  }
+
+  uint8_t* target = getWriteTarget();
+  if (!target) return;
+
+  uint32_t rowY = static_cast<uint32_t>(phyY - originY);
+
+  if (renderMode == GRAYSCALE_8BIT) {
+    const uint32_t byteIndex = rowY * panelWidth + phyX;
+    target[byteIndex] = state ? 0x00 : 0xFF;
+    return;
   }
 
   // Calculate byte position and bit position
@@ -581,6 +601,53 @@ void GfxRenderer::drawPixel(const int x, const int y, const bool state) const {
     target[byteIndex] &= ~(1 << bitPosition);  // Clear bit
   } else {
     target[byteIndex] |= 1 << bitPosition;  // Set bit
+  }
+}
+
+void GfxRenderer::drawPixelGray8Bit(const int x, const int y, const uint8_t gray) const {
+  if (clipActive && (x < clipX0 || x >= clipX1 || y < clipY0 || y >= clipY1)) {
+    return;
+  }
+
+  int phyX = 0, phyY = 0;
+  rotateCoordinates(orientation, x, y, &phyX, &phyY, panelWidth, panelHeight);
+
+  if (phyX < 0 || phyX >= panelWidth || phyY < 0 || phyY >= panelHeight) {
+    return;
+  }
+
+  const int originY = getWriteOriginY();
+  const int writeRows = getWriteRows();
+  if (phyY < originY || phyY >= originY + writeRows) {
+    return;
+  }
+
+  uint8_t* target = getWriteTarget();
+  if (!target) return;
+
+  uint32_t rowY = static_cast<uint32_t>(phyY - originY);
+
+  if (renderMode == GRAYSCALE_8BIT) {
+    uint8_t outGray = gray;
+    if (colorDepth == 4) {
+      outGray = gray;
+    } else if (colorDepth == 2) {
+      // Dither to 2-bit (4 levels: 0, 85, 170, 255)
+      const uint8_t bayer = bayer4x4[phyY & 3][phyX & 3];
+      const int dither = (static_cast<int>(bayer) - 8) * 5; // +/- 40
+      int adjusted = static_cast<int>(gray) + dither;
+      if (adjusted < 0) adjusted = 0;
+      if (adjusted > 255) adjusted = 255;
+      outGray = (adjusted >> 6) * 85;
+    } else {
+      // Dither to 1-bit (B/W)
+      const uint8_t bayer = bayer4x4[phyY & 3][phyX & 3];
+      outGray = (gray < (static_cast<int>(bayer) * 16)) ? 0x00 : 0xFF;
+    }
+    target[rowY * panelWidth + phyX] = outGray;
+  } else {
+    // Legacy modes (BW/LSB/MSB) already receive dithered 2-bit values from converters
+    drawPixel(x, y, gray < 128);
   }
 }
 
@@ -1001,13 +1068,36 @@ void GfxRenderer::fillRectImpl(const int x, const int y, const int width, const 
   phyY1 = std::min(phyY1, originY + writeRows - 1);
   if (phyY0 > phyY1) return;
 
+  if (renderMode == GRAYSCALE_8BIT && target) {
+    uint8_t level = 0xFF;
+    bool depth1Fallback = false;
+    if constexpr (C == Color::Black) level = 0x00;
+    else if constexpr (C == Color::White) level = 0xFF;
+    else if constexpr (C == Color::LightGray) {
+      if (colorDepth >= 2) level = 170;
+      else depth1Fallback = true;
+    } else if constexpr (C == Color::DarkGray) {
+      if (colorDepth >= 2) level = 85;
+      else depth1Fallback = true;
+    }
+
+    if (!depth1Fallback) {
+      for (int py = phyY0; py <= phyY1; ++py) {
+        uint8_t* row = target + static_cast<int32_t>(py - originY) * panelWidth;
+        memset(row + phyX0, level, phyX1 - phyX0 + 1);
+      }
+      return;
+    }
+  }
+
   // Bit/byte layout: MSB-first within a byte, so phyX → bit (7 - (phyX & 7)).
   // Head and tail masks cover only the in-rect bits of the first/last byte.
   const int byteStart = phyX0 >> 3;
   const int byteEnd = phyX1 >> 3;  // inclusive
   const uint8_t headMask = static_cast<uint8_t>(0xFFu >> (phyX0 & 7));
   const uint8_t tailMask = static_cast<uint8_t>(0xFFu << (7 - (phyX1 & 7)));
-  const int32_t panelStride = static_cast<int32_t>(panelWidthBytes);
+  const int32_t panelStride = (renderMode == GRAYSCALE_8BIT) ? static_cast<int32_t>(panelWidth)
+                                                             : static_cast<int32_t>(panelWidthBytes);
 
   if constexpr (C == Color::Black || C == Color::White) {
     // Solid fill. Framebuffer: 0 = black, 1 = white.
@@ -1116,6 +1206,15 @@ void GfxRenderer::fillRectImpl(const int x, const int y, const int width, const 
       // rect mask: write whiteMask (1s where white, 0s where black). Outside
       // the rect mask: leave the framebuffer untouched.
       uint8_t* row = target + static_cast<int32_t>(py - originY) * panelStride;
+
+      if (renderMode == GRAYSCALE_8BIT) {
+        for (int px = phyX0; px <= phyX1; ++px) {
+          bool isBlack = (blackMask >> (7 - (px & 7))) & 1;
+          row[px] = isBlack ? 0x00 : 0xFF;
+        }
+        continue;
+      }
+
       if (byteStart == byteEnd) {
         const uint8_t rectMask = headMask & tailMask;
         row[byteStart] = static_cast<uint8_t>((row[byteStart] & ~rectMask) | (rectMask & whiteMask));
@@ -1458,9 +1557,9 @@ void GfxRenderer::drawBitmap(const Bitmap& bitmap, const int x, const int y, con
   }
   LOG_DBG("GFX", "Scaling by %f - %s", scale, isScaled ? "scaled" : "not scaled");
 
-  // Calculate output row size (2 bits per pixel, packed into bytes)
-  // IMPORTANT: Use int, not uint8_t, to avoid overflow for images > 1020 pixels wide
-  const int outputRowSize = (bitmap.getWidth() + 3) / 4;
+  // Calculate output row size: 8bpp (0..255) for 16-level depth, else 2bpp (4-level)
+  const uint8_t outputBpp = (colorDepth == 4) ? 8 : 2;
+  const int outputRowSize = (bitmap.getWidth() * outputBpp + 7) / 8;
   auto* outputRow = static_cast<uint8_t*>(malloc(outputRowSize));
   auto* rowBytes = static_cast<uint8_t*>(malloc(bitmap.getRowBytes()));
 
@@ -1483,7 +1582,7 @@ void GfxRenderer::drawBitmap(const Bitmap& bitmap, const int x, const int y, con
       break;
     }
 
-    if (bitmap.readNextRow(outputRow, rowBytes) != BmpReaderError::Ok) {
+    if (bitmap.readNextRow(outputRow, rowBytes, outputBpp) != BmpReaderError::Ok) {
       LOG_ERR("GFX", "Failed to read row %d from bitmap", bmpY);
       free(outputRow);
       free(rowBytes);
@@ -1512,16 +1611,25 @@ void GfxRenderer::drawBitmap(const Bitmap& bitmap, const int x, const int y, con
         continue;
       }
 
-      const uint8_t val = outputRow[bmpX / 4] >> (6 - ((bmpX * 2) % 8)) & 0x3;
+      uint8_t gray;
+      if (outputBpp == 8) {
+        gray = outputRow[bmpX];
+      } else {
+        const uint8_t val = outputRow[bmpX / 4] >> (6 - ((bmpX * 2) % 8)) & 0x3;
+        gray = val * 85;
+      }
 
-      if (renderMode == BW && val < 3) {
+      if (renderMode == GRAYSCALE_8BIT) {
+        drawPixelGray8Bit(screenX, screenY, gray);
+      } else if (renderMode == BW && gray < 200) {
         drawPixel(screenX, screenY);
-      } else if (renderMode == GRAYSCALE_MSB && (val == 1 || val == 2)) {
+      } else if (renderMode == GRAYSCALE_MSB && gray > 0 && gray < 255) {
         drawPixel(screenX, screenY, false);
-      } else if (renderMode == GRAYSCALE_LSB && val == 1) {
+      } else if (renderMode == GRAYSCALE_LSB && gray > 0 && gray < 170) {
         drawPixel(screenX, screenY, false);
       }
     }
+    if (bmpY % 50 == 0) yield();
   }
 
   free(outputRow);
@@ -1664,8 +1772,12 @@ void GfxRenderer::clearScreen(const uint8_t color) const {
   start_ms = millis();
   if (_stripActive) {
     // Clear only the active band's scratch, not the shared framebuffer.
-    memset(_stripBuf, color, static_cast<size_t>(panelWidthBytes) * _stripRows);
+    const size_t bytesPerRow = (renderMode == GRAYSCALE_8BIT) ? panelWidth : panelWidthBytes;
+    memset(_stripBuf, color, bytesPerRow * _stripRows);
     return;
+  }
+  if (renderMode == GRAYSCALE_8BIT && grayBuffer) {
+    memset(grayBuffer, color, static_cast<size_t>(panelWidth) * panelHeight);
   }
   display.clearScreen(color);
 }
@@ -2286,10 +2398,20 @@ void GfxRenderer::copyGrayscaleMsbBuffers() const { display.copyGrayscaleMsbBuff
 
 void GfxRenderer::displayGrayBuffer() const { display.displayGrayBuffer(fadingFix); }
 
+void GfxRenderer::displayGray8Bit(const uint8_t* grayBuf, HalDisplay::RefreshMode mode) const {
+  display.displayGray8Bit(grayBuf, mode, fadingFix);
+}
+
 void GfxRenderer::writeGrayscalePlaneStrip(bool lsbPlane, const uint8_t* scratch, int yStart, int numRows) const {
   // Guard the uint16_t casts below: a negative would wrap to a huge length.
   assert(yStart >= 0 && numRows > 0 && yStart <= static_cast<int>(panelHeight) - numRows);
-  display.writeGrayscalePlaneStrip(lsbPlane, scratch, static_cast<uint16_t>(yStart), static_cast<uint16_t>(numRows));
+  display.writeGrayscalePlaneStrip(lsbPlane ? HalDisplay::GRAY_PLANE_LSB : HalDisplay::GRAY_PLANE_MSB, scratch,
+                                   static_cast<uint16_t>(yStart), static_cast<uint16_t>(numRows));
+}
+
+void GfxRenderer::writeGrayscale8BitStrip(const uint8_t* rows, int yStart, int numRows) const {
+  assert(yStart >= 0 && numRows > 0 && yStart <= static_cast<int>(panelHeight) - numRows);
+  display.writeGrayscale8BitStrip(rows, static_cast<uint16_t>(yStart), static_cast<uint16_t>(numRows));
 }
 
 bool GfxRenderer::supportsStripGrayscale() const { return display.supportsStripGrayscale(); }

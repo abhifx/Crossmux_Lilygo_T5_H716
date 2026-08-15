@@ -196,7 +196,7 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   };
 
   // UI Theme
-  enum UI_THEME { CLASSIC = 0, LYRA = 1, LYRA_3_COVERS = 2, ROUNDEDRAFF = 3, LYRA_CAROUSEL = 4, INX = 5 };
+  enum UI_THEME { CLASSIC = 0, LYRA = 1, LYRA_3_COVERS = 2, ROUNDEDRAFF = 3, LYRA_CAROUSEL = 4, INX = 5, SHELF = 6 };
 
   // Image rendering in EPUB reader
   enum IMAGE_RENDERING { IMAGES_DISPLAY = 0, IMAGES_PLACEHOLDER = 1, IMAGES_SUPPRESS = 2, IMAGE_RENDERING_COUNT };
@@ -220,6 +220,8 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
     DAILY_GOAL_60_MIN = 3,
     DAILY_GOAL_TARGET_COUNT
   };
+
+  enum COLOR_DEPTH { BIT_1 = 0, BIT_2 = 1, BIT_4 = 2, COLOR_DEPTH_COUNT };
 
   // Sleep screen settings
   uint8_t sleepScreen = DARK;
@@ -253,6 +255,7 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   // Text rendering settings
   uint8_t extraParagraphSpacing = 1;
   uint8_t textAntiAliasing = 1;
+  uint8_t colorDepth = BIT_4;
   uint8_t fakeBold = SYNTHETIC_BOLD_OFF;
   uint8_t readingBackgroundEnabled = 0;
   uint8_t readingGuideLineEnabled = 0;
@@ -312,7 +315,7 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   // Defaults to Disabled so shortcut-based bookmark toggling remains opt-in.
   uint8_t longPressMenuFunction = LP_MENU_DISABLED;
   // UI Theme
-  uint8_t uiTheme = INX;
+  uint8_t uiTheme = CLASSIC;
   // Show front-button hints along the bottom edge on non-touch devices.
   uint8_t showButtonHints = 1;
   uint8_t inxRecentLayout = static_cast<uint8_t>(InxRecentLayout::Flow);

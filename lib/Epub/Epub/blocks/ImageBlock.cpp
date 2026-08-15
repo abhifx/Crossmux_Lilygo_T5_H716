@@ -12,6 +12,7 @@
 
 #include "Epub/converters/DirectPixelWriter.h"
 #include "Epub/converters/ImageDecoderFactory.h"
+#include <DitherUtils.h>
 
 // Cache file format:
 // - uint16_t width
@@ -43,9 +44,14 @@ std::string getCachePath(const std::string& imagePath) {
 }
 
 bool readValidCacheHeader(HalFile& cacheFile, const int expectedWidth, const int expectedHeight, uint16_t& cachedWidth,
-                          uint16_t& cachedHeight) {
+                          uint16_t& cachedHeight, uint8_t& cachedBpp) {
   if (cacheFile.read(&cachedWidth, 2) != 2 || cacheFile.read(&cachedHeight, 2) != 2) {
     return false;
+  }
+
+  // Version/Bpp byte added in 1.5.1
+  if (cacheFile.read(&cachedBpp, 1) != 1) {
+    cachedBpp = 2;  // Legacy 2-bit cache
   }
 
   const int widthDiff = abs(cachedWidth - expectedWidth);
@@ -54,8 +60,8 @@ bool readValidCacheHeader(HalFile& cacheFile, const int expectedWidth, const int
     return false;
   }
 
-  const size_t bytesPerRow = (cachedWidth + 3) / 4;
-  const size_t expectedSize = 4 + bytesPerRow * cachedHeight;
+  const size_t bytesPerRow = (cachedWidth * cachedBpp + 7) / 8;
+  const size_t expectedSize = 5 + bytesPerRow * cachedHeight;
   return cacheFile.size() >= expectedSize;
 }
 
@@ -104,23 +110,46 @@ void rememberImageFailure(const std::string& path) {
 // across page turns.
 constexpr size_t PXC_CHUNK_SHIFT = 14;  // 16 KB chunks
 constexpr size_t PXC_CHUNK_SIZE = 1u << PXC_CHUNK_SHIFT;
-constexpr size_t PXC_MAX_CHUNKS = 6;  // 96 KB: a full-screen 2bpp image
+#if defined(BOARD_HAS_PSRAM)
+constexpr size_t PXC_MAX_CHUNKS = 48;  // 768 KB: covers full-page 8bpp H716 images (518 KB)
+#else
+constexpr size_t PXC_MAX_CHUNKS = 6;   // 96 KB: a full-screen 2bpp image
+#endif
 constexpr size_t PXC_HEAP_RESERVE = 24 * 1024;
 constexpr size_t PXC_MAX_ALLOC_RESERVE = 8 * 1024;
 // Rows can straddle a chunk boundary; they are reassembled into a stack
 // buffer. (screenWidth + 3) / 4 caps at 200 B for an 800px panel.
-constexpr int PXC_MAX_BYTES_PER_ROW = 208;
+constexpr int PXC_MAX_BYTES_PER_ROW = 960; // Support H716 full width
 
-std::unique_ptr<uint8_t[]> pxcChunks[PXC_MAX_CHUNKS];
+std::unique_ptr<uint8_t[], void (*)(void*)> pxcChunks[PXC_MAX_CHUNKS] = {
+    {nullptr, [](void* p) { free(p); }}, {nullptr, [](void* p) { free(p); }}, {nullptr, [](void* p) { free(p); }},
+    {nullptr, [](void* p) { free(p); }}, {nullptr, [](void* p) { free(p); }}, {nullptr, [](void* p) { free(p); }},
+    {nullptr, [](void* p) { free(p); }}, {nullptr, [](void* p) { free(p); }}, {nullptr, [](void* p) { free(p); }},
+    {nullptr, [](void* p) { free(p); }}, {nullptr, [](void* p) { free(p); }}, {nullptr, [](void* p) { free(p); }},
+    {nullptr, [](void* p) { free(p); }}, {nullptr, [](void* p) { free(p); }}, {nullptr, [](void* p) { free(p); }},
+    {nullptr, [](void* p) { free(p); }}, {nullptr, [](void* p) { free(p); }}, {nullptr, [](void* p) { free(p); }},
+    {nullptr, [](void* p) { free(p); }}, {nullptr, [](void* p) { free(p); }}, {nullptr, [](void* p) { free(p); }},
+    {nullptr, [](void* p) { free(p); }}, {nullptr, [](void* p) { free(p); }}, {nullptr, [](void* p) { free(p); }},
+    {nullptr, [](void* p) { free(p); }}, {nullptr, [](void* p) { free(p); }}, {nullptr, [](void* p) { free(p); }},
+    {nullptr, [](void* p) { free(p); }}, {nullptr, [](void* p) { free(p); }}, {nullptr, [](void* p) { free(p); }},
+    {nullptr, [](void* p) { free(p); }}, {nullptr, [](void* p) { free(p); }}, {nullptr, [](void* p) { free(p); }},
+    {nullptr, [](void* p) { free(p); }}, {nullptr, [](void* p) { free(p); }}, {nullptr, [](void* p) { free(p); }},
+    {nullptr, [](void* p) { free(p); }}, {nullptr, [](void* p) { free(p); }}, {nullptr, [](void* p) { free(p); }},
+    {nullptr, [](void* p) { free(p); }}, {nullptr, [](void* p) { free(p); }}, {nullptr, [](void* p) { free(p); }},
+    {nullptr, [](void* p) { free(p); }}, {nullptr, [](void* p) { free(p); }}, {nullptr, [](void* p) { free(p); }},
+    {nullptr, [](void* p) { free(p); }}, {nullptr, [](void* p) { free(p); }}, {nullptr, [](void* p) { free(p); }}
+};
 uint64_t pxcSlotHash = 0;
 uint16_t pxcSlotWidth = 0;
 uint16_t pxcSlotHeight = 0;
+uint8_t pxcSlotBpp = 0;
 
 void releasePxcSlot() {
   for (auto& chunk : pxcChunks) chunk.reset();
   pxcSlotHash = 0;
   pxcSlotWidth = 0;
   pxcSlotHeight = 0;
+  pxcSlotBpp = 0;
 }
 
 const uint8_t* pxcRowPtr(size_t rowStart, int bytesPerRow, uint8_t* tempRow) {
@@ -137,7 +166,8 @@ const uint8_t* pxcRowPtr(size_t rowStart, int bytesPerRow, uint8_t* tempRow) {
 
 // cacheFile is positioned just past the header. True when the slot holds the
 // full pixel payload for this cache path afterward.
-bool loadPxcSlot(uint64_t cacheHash, HalFile& cacheFile, uint16_t cachedWidth, uint16_t cachedHeight, int bytesPerRow) {
+bool loadPxcSlot(uint64_t cacheHash, HalFile& cacheFile, uint16_t cachedWidth, uint16_t cachedHeight, uint8_t cachedBpp,
+                 int bytesPerRow) {
   releasePxcSlot();
   if (bytesPerRow > PXC_MAX_BYTES_PER_ROW) {
     return false;
@@ -149,11 +179,18 @@ bool loadPxcSlot(uint64_t cacheHash, HalFile& cacheFile, uint16_t cachedWidth, u
   }
   for (size_t i = 0; i < chunkCount; i++) {
     const size_t want = remaining < PXC_CHUNK_SIZE ? remaining : PXC_CHUNK_SIZE;
+#if defined(BOARD_HAS_PSRAM)
+    // On S3, we have plenty of SPIRAM, use it first.
+    uint8_t* buf = (uint8_t*)heap_caps_malloc(want, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!buf) buf = (uint8_t*)malloc(want);
+#else
     if (ESP.getFreeHeap() < remaining + PXC_HEAP_RESERVE || ESP.getMaxAllocHeap() < want + PXC_MAX_ALLOC_RESERVE) {
       releasePxcSlot();
       return false;
     }
-    pxcChunks[i] = makeUniqueNoThrow<uint8_t[]>(want);
+    uint8_t* buf = (uint8_t*)malloc(want);
+#endif
+    pxcChunks[i].reset(buf);
     if (!pxcChunks[i] || cacheFile.read(pxcChunks[i].get(), want) != static_cast<int>(want)) {
       releasePxcSlot();
       return false;
@@ -163,11 +200,12 @@ bool loadPxcSlot(uint64_t cacheHash, HalFile& cacheFile, uint16_t cachedWidth, u
   pxcSlotHash = cacheHash;
   pxcSlotWidth = cachedWidth;
   pxcSlotHeight = cachedHeight;
+  pxcSlotBpp = cachedBpp;
   return true;
 }
 
 void renderRowsFromPxcSlot(GfxRenderer& renderer, int x, int y) {
-  const int bytesPerRow = (pxcSlotWidth + 3) / 4;
+  const int bytesPerRow = (pxcSlotWidth * pxcSlotBpp + 7) / 8;
   uint8_t tempRow[PXC_MAX_BYTES_PER_ROW];
 
   DirectPixelWriter pw;
@@ -179,22 +217,46 @@ void renderRowsFromPxcSlot(GfxRenderer& renderer, int x, int y) {
     int colStart, colEnd;
     pw.bandColRange(x, pxcSlotWidth, colStart, colEnd);
     for (int col = colStart; col < colEnd; col++) {
-      const int byteIdx = col >> 2;            // col / 4
-      const int bitShift = 6 - (col & 3) * 2;  // MSB first within byte
-      const uint8_t pixelValue = (rowBuffer[byteIdx] >> bitShift) & 0x03;
+      uint8_t pixelValue;
+      if (pxcSlotBpp == 8) {
+        pixelValue = rowBuffer[col];
+        if (renderer.getRenderMode() != GfxRenderer::GRAYSCALE_8BIT) {
+          // Dither 8-bit raw cache down to 2-bit (0..3) for legacy B/W or plane modes.
+          // This provides gradients even when the cache is high-quality raw grayscale.
+          pixelValue = applyBayerDither4Level(pixelValue, x + col, y + row);
+        }
+      } else {
+        const int byteIdx = col >> 2;            // col / 4
+        const int bitShift = 6 - (col & 3) * 2;  // MSB first within byte
+        pixelValue = (rowBuffer[byteIdx] >> bitShift) & 0x03;
+        if (renderer.getRenderMode() == GfxRenderer::GRAYSCALE_8BIT) {
+          pixelValue *= 85;  // Expand 0..3 to 0..255
+        }
+      }
       pw.writePixel(x + col, pixelValue);
     }
+    if (row % 100 == 0) yield();
   }
 }
 
 bool renderFromCache(GfxRenderer& renderer, const std::string& cachePath, int x, int y, int expectedWidth,
                      int expectedHeight, const ImageBlock::PixelCachePolicy cachePolicy) {
+  const bool hardwareSupportsGrayscale = renderer.supportsGrayscale8Bit();
+  const uint8_t depth = renderer.getColorDepth();
+  // On high-depth hardware, always prefer 8-bit cache to preserve quality.
+  // On standard hardware, use 2-bit cache to save space.
+  const uint8_t requiredBpp = hardwareSupportsGrayscale ? 8 : 2;
+
   // A later pass of the same page render: the payload is already in RAM, skip
   // the file entirely.
   const uint64_t cacheHash = imagePathHash(cachePath);
   if (cachePolicy == ImageBlock::PixelCachePolicy::LoadIntoRam && pxcSlotHash == cacheHash && pxcSlotWidth != 0) {
-    renderRowsFromPxcSlot(renderer, x, y);
-    return true;
+    if (pxcSlotBpp >= requiredBpp) {
+      renderRowsFromPxcSlot(renderer, x, y);
+      return true;
+    }
+    // Slot has lower quality cache, need to reload/redecode
+    releasePxcSlot();
   }
 
   HalFile cacheFile;
@@ -203,8 +265,16 @@ bool renderFromCache(GfxRenderer& renderer, const std::string& cachePath, int x,
   }
 
   uint16_t cachedWidth, cachedHeight;
-  if (!readValidCacheHeader(cacheFile, expectedWidth, expectedHeight, cachedWidth, cachedHeight)) {
+  uint8_t cachedBpp;
+  if (!readValidCacheHeader(cacheFile, expectedWidth, expectedHeight, cachedWidth, cachedHeight, cachedBpp)) {
     LOG_ERR("IMG", "Invalid image cache: %s", cachePath.c_str());
+    return false;
+  }
+
+  // If we need 8-bit but only have 2-bit, reject the cache so we re-decode.
+  if (requiredBpp == 8 && cachedBpp < 8) {
+    LOG_INF("IMG", "Rejecting low-depth cache (have %d, want %d)", cachedBpp, requiredBpp);
+    cacheFile.close();
     return false;
   }
 
@@ -212,9 +282,9 @@ bool renderFromCache(GfxRenderer& renderer, const std::string& cachePath, int x,
   expectedWidth = cachedWidth;
   expectedHeight = cachedHeight;
 
-  LOG_DBG("IMG", "Loading from cache: %s (%dx%d)", cachePath.c_str(), cachedWidth, cachedHeight);
+  LOG_DBG("IMG", "Loading from cache: %s (%dx%d, %d-bit)", cachePath.c_str(), cachedWidth, cachedHeight, cachedBpp);
 
-  const int bytesPerRow = (cachedWidth + 3) / 4;  // 2 bits per pixel, 4 pixels per byte
+  const int bytesPerRow = (cachedWidth * cachedBpp + 7) / 8;
 
   // First pass of a page render: try to pull the payload into the RAM slot so
   // the remaining ~12 passes skip SD entirely. Only an EMPTY slot is claimed:
@@ -224,7 +294,7 @@ bool renderFromCache(GfxRenderer& renderer, const std::string& cachePath, int x,
   // (all the SD traffic of streaming plus the slot alloc churn); instead later
   // images take the streaming path below, unchanged from pre-cache behavior.
   if (cachePolicy == ImageBlock::PixelCachePolicy::LoadIntoRam && pxcSlotHash == 0 &&
-      loadPxcSlot(cacheHash, cacheFile, cachedWidth, cachedHeight, bytesPerRow)) {
+      loadPxcSlot(cacheHash, cacheFile, cachedWidth, cachedHeight, cachedBpp, bytesPerRow)) {
     renderRowsFromPxcSlot(renderer, x, y);
     LOG_DBG("IMG", "Cache render complete (payload now in RAM)");
     return true;
@@ -232,7 +302,7 @@ bool renderFromCache(GfxRenderer& renderer, const std::string& cachePath, int x,
 
   // Streaming fallback (slot didn't fit). A failed slot load may have consumed
   // part of the payload; rewind to just past the header.
-  cacheFile.seek(4);
+  cacheFile.seek(5);
 
   // Read several rows per SD access. A one-row-per-read loop here means
   // cachedHeight (~728) tiny reads through the storage mutex + SdFat; batching
@@ -279,12 +349,25 @@ bool renderFromCache(GfxRenderer& renderer, const std::string& cachePath, int x,
     int colStart, colEnd;
     pw.bandColRange(x, cachedWidth, colStart, colEnd);
     for (int col = colStart; col < colEnd; col++) {
-      const int byteIdx = col >> 2;            // col / 4
-      const int bitShift = 6 - (col & 3) * 2;  // MSB first within byte
-      uint8_t pixelValue = (rowBuffer[byteIdx] >> bitShift) & 0x03;
+      uint8_t pixelValue;
+      if (cachedBpp == 8) {
+        pixelValue = rowBuffer[col];
+        if (renderer.getRenderMode() != GfxRenderer::GRAYSCALE_8BIT) {
+          // Dither 8-bit raw cache down to 2-bit (0..3) for legacy B/W or plane modes.
+          pixelValue = applyBayerDither4Level(pixelValue, x + col, destY);
+        }
+      } else {
+        const int byteIdx = col >> 2;            // col / 4
+        const int bitShift = 6 - (col & 3) * 2;  // MSB first within byte
+        pixelValue = (rowBuffer[byteIdx] >> bitShift) & 0x03;
+        if (renderer.getRenderMode() == GfxRenderer::GRAYSCALE_8BIT) {
+          pixelValue *= 85;  // Expand 0..3 to 0..255
+        }
+      }
 
       pw.writePixel(x + col, pixelValue);
     }
+    if (row % 100 == 0) yield();
   }
 
   LOG_DBG("IMG", "Cache render complete");
@@ -301,7 +384,8 @@ bool ImageBlock::hasValidCache() const {
   }
 
   uint16_t cachedWidth, cachedHeight;
-  return readValidCacheHeader(cacheFile, width, height, cachedWidth, cachedHeight);
+  uint8_t cachedBpp;
+  return readValidCacheHeader(cacheFile, width, height, cachedWidth, cachedHeight, cachedBpp);
 }
 
 bool ImageBlock::needsDecode() const { return !imageFailedThisSession(imagePath) && !hasValidCache(); }
@@ -401,7 +485,9 @@ bool ImageBlock::render(GfxRenderer& renderer, const int x, const int y, const P
   config.maxWidth = width;
   config.maxHeight = height;
   config.useGrayscale = true;
-  config.useDithering = true;
+  // Disable dithering when rendering for high-depth hardware (8-bit pipeline).
+  // Dithering is used to simulate more levels on low-depth (1-bit/2-bit) panels.
+  config.useDithering = !renderer.supportsGrayscale8Bit();
   config.performanceMode = false;
   config.useExactDimensions = true;  // Use pre-calculated dimensions to avoid rounding mismatches
   config.cachePath = cachePath;      // Enable caching during decode
