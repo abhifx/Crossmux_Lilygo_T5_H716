@@ -629,20 +629,20 @@ void GfxRenderer::drawPixelGray8Bit(const int x, const int y, const uint8_t gray
 
   if (renderMode == GRAYSCALE_8BIT) {
     uint8_t outGray = gray;
-    if (colorDepth == 4) {
-      outGray = gray;
-    } else if (colorDepth == 2) {
+    if (this->colorDepth == 4) {
+      outGray = applyBayerDither16Level(gray, phyX, phyY, this->ditherMode);
+    } else if (this->colorDepth == 2) {
       // Dither to 2-bit (4 levels: 0, 85, 170, 255)
-      const uint8_t bayer = bayer4x4[phyY & 3][phyX & 3];
-      const int dither = (static_cast<int>(bayer) - 8) * 5; // +/- 40
-      int adjusted = static_cast<int>(gray) + dither;
-      if (adjusted < 0) adjusted = 0;
-      if (adjusted > 255) adjusted = 255;
-      outGray = (adjusted >> 6) * 85;
+      outGray = applyBayerDither4Level(gray, phyX, phyY, this->ditherMode) * 85;
     } else {
       // Dither to 1-bit (B/W)
-      const uint8_t bayer = bayer4x4[phyY & 3][phyX & 3];
-      outGray = (gray < (static_cast<int>(bayer) * 16)) ? 0x00 : 0xFF;
+      if (this->ditherMode == 0) {
+          outGray = (gray < 128) ? 0x00 : 0xFF;
+      } else {
+          const uint8_t bayer = (this->ditherMode == 2) ? (bayer8x8[phyY & 7][phyX & 7] / 4) : bayer4x4[phyY & 3][phyX & 3];
+          // Use a centered threshold for the B/W dither (bayer is 0-15)
+          outGray = (gray < (static_cast<int>(bayer) * 16 + 8)) ? 0x00 : 0xFF;
+      }
     }
     target[rowY * panelWidth + phyX] = outGray;
   } else {

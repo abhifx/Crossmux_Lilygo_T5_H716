@@ -1,0 +1,222 @@
+--- Terminal on COM5 | 115200 8-N-1
+--- Available filters and text transformations: debug, default, direct, esp32_exception_decoder, hexlify, log2file, nocontrol, printable, send_on_enter, time
+--- More details at https://bit.ly/pio-monitor-filters
+--- Quit: Ctrl+C | Menu: Ctrl+T | Help: Ctrl+T followed by Ctrl+H
+[7310] [DBG] [EHP] Image dimensions: 821x1186
+[7311] [DBG] [EHP] Display size: 524x756 (scale 0.64)
+[7314] [DBG] [SCT] Page 11 processed
+[7321] [DBG] [EHP] Found image: src=index-14_1.jpg
+[7395] [DBG] [EHP] Image dimensions: 820x1186
+[7396] [DBG] [EHP] Display size: 524x757 (scale 0.64)
+[7399] [DBG] [SCT] Page 12 processed
+[7407] [DBG] [EHP] Found image: src=index-15_1.jpg
+[7476] [DBG] [EHP] Image dimensions: 820x1186
+[7477] [DBG] [EHP] Display size: 524x757 (scale 0.64)
+[7485] [DBG] [SCT] Page 13 processed
+[7497] [DBG] [EHP] Found image: src=index-16_1.jpg
+[7602] [DBG] [EHP] Image dimensions: 818x1186
+[7603] [DBG] [EHP] Display size: 524x759 (scale 0.64)
+[7607] [DBG] [SCT] Page 14 processed
+[7614] [DBG] [EHP] Found image: src=index-17_1.jpg
+[7689] [DBG] [EHP] Image dimensions: 818x1186
+[7690] [DBG] [EHP] Display size: 524x759 (scale 0.64)
+[7693] [DBG] [SCT] Page 15 processed
+[7701] [DBG] [EHP] Found image: src=index-18_1.jpg
+[7773] [DBG] [EHP] Image dimensions: 819x1186
+[7774] [DBG] [EHP] Display size: 524x758 (scale 0.64)
+[7778] [DBG] [SCT] Page 16 processed
+[7785] [DBG] [EHP] Found image: src=index-19_1.jpg
+[7847] [DBG] [EHP] Image dimensions: 819x1186
+[7848] [DBG] [EHP] Display size: 524x758 (scale 0.64)
+[7851] [DBG] [SCT] Page 17 processed
+[7859] [DBG] [EHP] Found image: src=index-20_1.jpg
+[7921] [DBG] [EHP] Image dimensions: 819x1186
+[7922] [DBG] [EHP] Display size: 524x758 (scale 0.64)
+[7926] [DBG] [SCT] Page 18 processed
+[7933] [DBG] [EHP] Found image: src=index-21_1.jpg
+[8031] [DBG] [EHP] Image dimensions: 819x1186
+[8032] [DBG] [EHP] Display size: 524x758 (scale 0.64)
+[8041] [DBG] [SCT] Page 19 processed
+[8047] [DBG] [EHP] Found image: src=index-22_1.jpg
+[8135] [DBG] [EHP] Image dimensions: 820x1186
+[8137] [DBG] [EHP] Display size: 524x757 (scale 0.64)
+[8140] [DBG] [SCT] Page 20 processed
+[8147] [DBG] [EHP] Found image: src=index-23_1.jpg
+[8214] [DBG] [EHP] Image dimensions: 820x1186
+[8215] [DBG] [EHP] Display size: 524x757 (scale 0.64)
+[8218] [DBG] [SCT] Page 21 processed
+[8225] [DBG] [EHP] Found image: src=index-24_1.jpg
+[8285] [DBG] [EHP] Image dimensions: 821x1186
+[8286] [DBG] [EHP] Display size: 524x756 (scale 0.64)
+[8289] [DBG] [SCT] Page 22 processed
+[8297] [DBG] [EHP] Found image: src=index-25_1.jpg
+[8367] [DBG] [EHP] Image dimensions: 821x1186
+[8368] [DBG] [EHP] Display size: 524x756 (scale 0.64)
+[8372] [DBG] [SCT] Page 23 processed
+[8379] [DBG] [EHP] Found image: src=index-26_1.jpg
+[8440] [DBG] [EHP] Image dimensions: 819x1186
+[8441] [DBG] [EHP] Display size: 524x758 (scale 0.64)
+[8444] [DBG] [SCT] Page 24 processed
+[8455] [DBG] [EHP] Found image: src=index-27_1.jpg
+[8530] [DBG] [EHP] Image dimensions: 819x1186
+[8531] [DBG] [EHP] Display size: 524x758 (scale 0.64)
+[8534] [DBG] [SCT] Page 25 processed
+[8541] [DBG] [EHP] Found image: src=index-28_1.jpg
+[8591] [DBG] [EHP] Image dimensions: 819x1186
+[8592] [DBG] [EHP] Display size: 524x758 (scale 0.64)
+[8599] [DBG] [SCT] Page 26 processed
+[8605] [DBG] [EHP] Found image: src=index-29_1.jpg
+[8702] [DBG] [EHP] Image dimensions: 819x1186
+[8703] [DBG] [EHP] Display size: 524x758 (scale 0.64)
+[8706] [DBG] [SCT] Page 27 processed
+[8713] [DBG] [EHP] Found image: src=index-30_1.jpg
+[8763] [DBG] [EHP] Image dimensions: 820x1186
+[8764] [DBG] [EHP] Display size: 524x757 (scale 0.64)
+[8767] [DBG] [SCT] Page 28 processed
+[8775] [DBG] [EHP] Found image: src=index-31_1.jpg
+[8834] [DBG] [EHP] Image dimensions: 820x1186
+[8835] [DBG] [EHP] Display size: 524x757 (scale 0.64)
+[8838] [DBG] [SCT] Page 29 processed
+[8845] [DBG] [EHP] Found image: src=index-32_1.jpg
+[8903] [DBG] [EHP] Image dimensions: 818x1186
+[8904] [DBG] [EHP] Display size: 524x759 (scale 0.64)
+[8907] [DBG] [SCT] Page 30 processed
+[8915] [DBG] [EHP] Found image: src=index-33_1.jpg
+[9006] [DBG] [EHP] Image dimensions: 818x1186
+[9007] [DBG] [EHP] Display size: 524x759 (scale 0.64)
+[9010] [DBG] [SCT] Page 31 processed
+[9017] [DBG] [EHP] Found image: src=index-34_1.jpg
+[9067] [DBG] [EHP] Image dimensions: 821x1186
+[9069] [DBG] [EHP] Display size: 524x756 (scale 0.64)
+[9072] [DBG] [SCT] Page 32 processed
+[9079] [DBG] [EHP] Found image: src=index-35_1.jpg
+[9141] [DBG] [EHP] Image dimensions: 821x1186
+[9142] [DBG] [EHP] Display size: 524x756 (scale 0.64)
+[9150] [DBG] [SCT] Page 33 processed
+[9157] [DBG] [EHP] Found image: src=index-36_1.jpg
+[9206] [DBG] [EHP] Image dimensions: 820x1186
+[9207] [DBG] [EHP] Display size: 524x757 (scale 0.64)
+[9210] [DBG] [SCT] Page 34 processed
+[9221] [DBG] [EHP] Found image: src=index-37_1.jpg
+[9296] [DBG] [EHP] Image dimensions: 820x1186
+[9297] [DBG] [EHP] Display size: 524x757 (scale 0.64)
+[9300] [DBG] [SCT] Page 35 processed
+[9307] [DBG] [EHP] Found image: src=index-38_1.jpg
+[9359] [DBG] [EHP] Image dimensions: 820x1186
+[9359] [DBG] [EHP] Display size: 524x757 (scale 0.64)
+[9363] [DBG] [SCT] Page 36 processed
+[9371] [DBG] [EHP] Found image: src=index-39_1.jpg
+[9474] [DBG] [EHP] Image dimensions: 820x1186
+[9475] [DBG] [EHP] Display size: 524x757 (scale 0.64)
+[9478] [DBG] [SCT] Page 37 processed
+[9485] [DBG] [EHP] Found image: src=index-40_1.jpg
+[9555] [DBG] [EHP] Image dimensions: 820x1186
+[9556] [DBG] [EHP] Display size: 524x757 (scale 0.64)
+[9559] [DBG] [SCT] Page 38 processed
+[9567] [DBG] [EHP] Found image: src=index-41_1.jpg
+[9665] [DBG] [EHP] Image dimensions: 820x1186
+[9665] [DBG] [EHP] Display size: 524x757 (scale 0.64)
+[9669] [DBG] [SCT] Page 39 processed
+[9676] [DBG] [EHP] Found image: src=index-42_1.jpg
+[9737] [DBG] [EHP] Image dimensions: 818x1186
+[9738] [DBG] [EHP] Display size: 524x759 (scale 0.64)
+[9747] [DBG] [SCT] Page 40 processed
+[9753] [DBG] [EHP] Found image: src=index-43_1.jpg
+[9827] [DBG] [EHP] Image dimensions: 818x1186
+[9829] [DBG] [EHP] Display size: 524x759 (scale 0.64)
+[9832] [DBG] [SCT] Page 41 processed
+[9839] [DBG] [EHP] Found image: src=index-44_1.jpg
+[9925] [DBG] [EHP] Image dimensions: 818x1186
+[9927] [DBG] [EHP] Display size: 524x759 (scale 0.64)
+[9930] [DBG] [SCT] Page 42 processed
+[9937] [DBG] [EHP] Found image: src=index-45_1.jpg
+[10000] [INF] [MEM] Free: 72804 bytes, Total: 318148 bytes, Min Free: 70620 bytes, MaxAlloc: 31732 bytes
+[10038] [DBG] [EHP] Image dimensions: 818x1186
+[10039] [DBG] [EHP] Display size: 524x759 (scale 0.64)
+[10042] [DBG] [SCT] Page 43 processed
+[10049] [DBG] [EHP] Found image: src=index-46_1.jpg
+[10133] [DBG] [EHP] Image dimensions: 818x1186
+[10134] [DBG] [EHP] Display size: 524x759 (scale 0.64)
+[10137] [DBG] [SCT] Page 44 processed
+[10149] [DBG] [EHP] Found image: src=index-47_1.jpg
+[10239] [DBG] [EHP] Image dimensions: 818x1186
+[10240] [DBG] [EHP] Display size: 524x759 (scale 0.64)
+[10243] [DBG] [SCT] Page 45 processed
+[10251] [DBG] [EHP] Found image: src=index-48_1.jpg
+[10355] [DBG] [EHP] Image dimensions: 819x1186
+[10356] [DBG] [EHP] Display size: 524x758 (scale 0.64)
+[10368] [DBG] [SCT] Page 46 processed
+[10375] [DBG] [EHP] Found image: src=index-49_1.jpg
+[10431] [DBG] [EHP] Image dimensions: 819x1186
+[10432] [DBG] [EHP] Display size: 524x758 (scale 0.64)
+[10435] [DBG] [SCT] Page 47 processed
+[10443] [DBG] [EHP] Found image: src=index-50_1.jpg
+[10542] [DBG] [EHP] Image dimensions: 820x1186
+[10543] [DBG] [EHP] Display size: 524x757 (scale 0.64)
+[10546] [DBG] [SCT] Page 48 processed
+[10553] [DBG] [EHP] Found image: src=index-51_1.jpg
+[10608] [DBG] [EHP] Image dimensions: 820x1186
+[10609] [DBG] [EHP] Display size: 524x757 (scale 0.64)
+[10612] [DBG] [SCT] Page 49 processed
+[10619] [DBG] [EHP] Found image: src=index-52_1.jpg
+[10700] [DBG] [EHP] Image dimensions: 820x1186
+[10701] [DBG] [EHP] Display size: 524x757 (scale 0.64)
+[10704] [DBG] [SCT] Page 50 processed
+[10711] [DBG] [EHP] Found image: src=index-53_1.jpg
+[10758] [DBG] [EHP] Image dimensions: 820x1186
+[10759] [DBG] [EHP] Display size: 524x757 (scale 0.64)
+[10762] [DBG] [SCT] Page 51 processed
+[10769] [DBG] [EHP] Found image: src=index-54_1.jpg
+[10831] [DBG] [EHP] Image dimensions: 820x1186
+[10832] [DBG] [EHP] Display size: 524x757 (scale 0.64)
+[10836] [DBG] [SCT] Page 52 processed
+[10843] [DBG] [EHP] Found image: src=index-55_1.jpg
+[10908] [DBG] [EHP] Image dimensions: 820x1186
+[10909] [DBG] [EHP] Display size: 524x757 (scale 0.64)
+[10915] [DBG] [SCT] Page 53 processed
+[10922] [DBG] [EHP] Found image: src=index-56_1.jpg
+[10995] [DBG] [EHP] Image dimensions: 818x1186
+[10996] [DBG] [EHP] Display size: 524x759 (scale 0.64)
+[10999] [DBG] [SCT] Page 54 processed
+[11059] [DBG] [FDC] [epub-page] hits=0 misses=0 (0.0% hit rate)
+[11059] [DBG] [FDC] [epub-page] decompress=0ms groups_accessed=0
+[11059] [DBG] [FDC] [epub-page] mem: pageBuf=0 pageGlyphs=0 hotGroup=0 peakTemp=0
+[11060] [DBG] [IMG] Rendering image at 8,46: /.crosspoint/epub_2895706302/img_0_46.jpg (524x759)
+[11100] [DBG] [IMG] Loading from cache: /.crosspoint/epub_2895706302/img_0_46.pxc (524x759)
+[11559] [DBG] [IMG] Cache render complete
+[11569] [DBG] [GFX] Time = 563 ms from clearScreen to displayBuffer
+[11705] [INF] [PDR] syncToPainter: Levels [0]=408770 [5]=0 [10]=0 [15]=109630 (Ink-Priority 4->16 Merge)
+[11706] [INF] [PDR] Ghost clear triggered (BW, SOFT)
+[12302] [DBG] [GFX] Time = 1296 ms from clearScreen to displayBuffer
+[12439] [INF] [PDR] syncToPainter: Levels [0]=517512 [5]=0 [10]=0 [15]=888 (Ink-Priority 4->16 Merge)
+[12625] [DBG] [IMG] Rendering image at 8,46: /.crosspoint/epub_2895706302/img_0_46.jpg (524x759)
+[12664] [DBG] [IMG] Loading from cache: /.crosspoint/epub_2895706302/img_0_46.pxc (524x759)
+[13131] [DBG] [IMG] Cache render complete
+[13132] [DBG] [GFX] Time = 2126 ms from clearScreen to displayBuffer
+[13269] [INF] [PDR] syncToPainter: Levels [0]=408770 [5]=0 [10]=0 [15]=109630 (Ink-Priority 4->16 Merge)
+[13403] [DBG] [IMG] Rendering image at 8,46: /.crosspoint/epub_2895706302/img_0_46.jpg (524x759)
+[13442] [DBG] [IMG] Loading from cache: /.crosspoint/epub_2895706302/img_0_46.pxc (524x759)
+[13744] [DBG] [IMG] Cache render complete
+[13746] [DBG] [IMG] Rendering image at 8,46: /.crosspoint/epub_2895706302/img_0_46.jpg (524x759)
+[13787] [DBG] [IMG] Loading from cache: /.crosspoint/epub_2895706302/img_0_46.pxc (524x759)
+[14095] [DBG] [IMG] Cache render complete
+[14097] [DBG] [IMG] Rendering image at 8,46: /.crosspoint/epub_2895706302/img_0_46.jpg (524x759)
+[14137] [DBG] [IMG] Loading from cache: /.crosspoint/epub_2895706302/img_0_46.pxc (524x759)
+[14447] [DBG] [IMG] Cache render complete
+[14449] [DBG] [IMG] Rendering image at 8,46: /.crosspoint/epub_2895706302/img_0_46.jpg (524x759)
+[14489] [DBG] [IMG] Loading from cache: /.crosspoint/epub_2895706302/img_0_46.pxc (524x759)
+[14799] [DBG] [IMG] Cache render complete
+[14801] [DBG] [IMG] Rendering image at 8,46: /.crosspoint/epub_2895706302/img_0_46.jpg (524x759)
+[14841] [DBG] [IMG] Loading from cache: /.crosspoint/epub_2895706302/img_0_46.pxc (524x759)
+[15149] [DBG] [IMG] Cache render complete
+[15151] [DBG] [IMG] Rendering image at 8,46: /.crosspoint/epub_2895706302/img_0_46.jpg (524x759)
+[15191] [DBG] [IMG] Loading from cache: /.crosspoint/epub_2895706302/img_0_46.pxc (524x759)
+[15499] [DBG] [IMG] Cache render complete
+[15501] [DBG] [IMG] Rendering image at 8,46: /.crosspoint/epub_2895706302/img_0_46.jpg (524x759)
+[15541] [DBG] [IMG] Loading from cache: /.crosspoint/epub_2895706302/img_0_46.pxc (524x759)
+[15840] [DBG] [IMG] Cache render complete
+[15842] [DBG] [IMG] Rendering image at 8,46: /.crosspoint/epub_2895706302/img_0_46.jpg (524x759)
+[15882] [DBG] [IMG] Loading from cache: /.crosspoint/epub_2895706302/img_0_46.pxc (524x759)
+[16195] [DBG] [IMG] Cache render complete
+[16197] [DBG] [IMG] Rendering image at 8,46: /.crosspoint/epub_2895706302/img_0_46.jpg (524x759)
+[16237] [DBG] [IMG] Loading from cache: /.crosspoint/epub_2895706302/img_0_46.pxc (524x759)

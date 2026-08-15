@@ -46,6 +46,7 @@ class GfxRenderer {
   RenderMode renderMode;
   Orientation orientation;
   uint8_t colorDepth = 2;
+  uint8_t ditherMode = 1;
   bool fadingFix;
   mutable uint8_t syntheticBoldPixels = 0;
   uint8_t* frameBuffer = nullptr;
@@ -129,7 +130,7 @@ class GfxRenderer {
 
  public:
   explicit GfxRenderer(HalDisplay& halDisplay)
-      : display(halDisplay), renderMode(BW), orientation(Portrait), fadingFix(false) {}
+      : display(halDisplay), renderMode(BW), orientation(Portrait), colorDepth(4), ditherMode(1), fadingFix(false) {}
   ~GfxRenderer() { freeBwBufferChunks(); }
 
   static constexpr int VIEWABLE_MARGIN_TOP = 9;
@@ -187,6 +188,8 @@ class GfxRenderer {
   // Color depth control
   void setColorDepth(uint8_t bits) { colorDepth = bits; }
   uint8_t getColorDepth() const { return colorDepth; }
+  void setDitherMode(uint8_t mode) { ditherMode = mode; }
+  uint8_t getDitherMode() const { return ditherMode; }
 
   // Screen ops
   int getScreenWidth() const;

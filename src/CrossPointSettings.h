@@ -222,6 +222,7 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   };
 
   enum COLOR_DEPTH { BIT_1 = 0, BIT_2 = 1, BIT_4 = 2, COLOR_DEPTH_COUNT };
+  enum DITHER_MODE { DITHER_NONE = 0, DITHER_BAYER_4 = 1, DITHER_BAYER_8 = 2, DITHER_MODE_COUNT };
 
   // Sleep screen settings
   uint8_t sleepScreen = DARK;
@@ -256,6 +257,7 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t extraParagraphSpacing = 1;
   uint8_t textAntiAliasing = 1;
   uint8_t colorDepth = BIT_4;
+  uint8_t ditherMode = DITHER_BAYER_4;
   uint8_t fakeBold = SYNTHETIC_BOLD_OFF;
   uint8_t readingBackgroundEnabled = 0;
   uint8_t readingGuideLineEnabled = 0;

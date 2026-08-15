@@ -19,6 +19,7 @@ struct DirectPixelWriter {
   uint8_t* fb;
   GfxRenderer::RenderMode mode;
   uint8_t colorDepth;
+  uint8_t ditherMode;
   uint16_t displayWidthBytes;  // Runtime framebuffer stride (X4: 100, X3: 99)
   // Active write target: for tiled grayscale, fb is the band scratch, originY is
   // the band's top physical row, and clipRows is the band height. Off-band
@@ -43,6 +44,7 @@ struct DirectPixelWriter {
     clipRows = renderer.getWriteRows();
     mode = renderer.getRenderMode();
     colorDepth = renderer.getColorDepth();
+    ditherMode = renderer.getDitherMode();
     displayWidthBytes = renderer.getDisplayWidthBytes();
 
     const int phyW = renderer.getDisplayWidth();
@@ -161,19 +163,19 @@ struct DirectPixelWriter {
     if (mode == GfxRenderer::GRAYSCALE_8BIT) {
       const uint32_t pixelIndex = static_cast<uint32_t>(sy) * (displayWidthBytes * 8) + phyX;
       if (colorDepth == 4) {
-        // 16 levels: Just write raw value, gradients are smooth enough.
-        fb[pixelIndex] = value;
+        // 16 levels: Use selected dither
+        fb[pixelIndex] = applyBayerDither16Level(value, phyX, phyY, ditherMode);
       } else if (colorDepth == 2) {
-        // 4 levels: Simple Bayer dither.
-        const uint8_t bayer = bayer4x4[phyY & 3][phyX & 3];
-        int adjusted = static_cast<int>(value) + (static_cast<int>(bayer) - 8) * 5;
-        if (adjusted < 0) adjusted = 0;
-        if (adjusted > 255) adjusted = 255;
-        fb[pixelIndex] = (adjusted >> 6) * 85;
+        // 4 levels: Use selected dither
+        fb[pixelIndex] = applyBayerDither4Level(value, phyX, phyY, ditherMode) * 85;
       } else {
-        // 1-bit: Newspaper-style dither.
-        const uint8_t bayer = bayer4x4[phyY & 3][phyX & 3];
-        fb[pixelIndex] = (value < (bayer * 16)) ? 0x00 : 0xFF;
+        // 1-bit: Use selected dither as threshold
+        if (ditherMode == 0) {
+            fb[pixelIndex] = (value < 128) ? 0x00 : 0xFF;
+        } else {
+            const uint8_t bayer = (ditherMode == 2) ? (bayer8x8[phyY & 7][phyX & 7] / 4) : bayer4x4[phyY & 3][phyX & 3];
+            fb[pixelIndex] = (value < (static_cast<int>(bayer) * 16 + 8)) ? 0x00 : 0xFF;
+        }
       }
       return;
     }

@@ -1,0 +1,133 @@
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0x15 (USB_UART_CHIP_RESET),boot:0xc (SPI_FAST_FLASH_BOOT)
+Saved PC:0x4037b586
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0xfb0
+load:0x403c8700,len:0xaf4
+load:0x403cb700,len:0x2e34
+entry 0x403c8898
+[BOOT] Starting setup...
+[BOOT] HalSystem initialized
+[BOOT] Initializing GPIO...
+[2275] [INF] [H716] Resetting SR strobe...
+[2276] [INF] [H716] Initializing SR power...
+[2276] [INF] [H716] Waiting for stabilization (800ms)...
+[3076] [INF] [H716] Initializing I2C...
+[3076] [INF] [H716] Wire.begin(SDA=18 SCL=17)
+[3077] [INF] [H716] Preparing SD bus...
+[3078] [INF] [H716] Init complete.
+[BOOT] GPIO initialized
+[BOOT] Initializing PowerManager...
+[BOOT] PowerManager initialized
+[BOOT] Initializing TiltSensor...
+[3079] [ERR] [GYR] SDK IMU not found
+[BOOT] TiltSensor initialized
+[BOOT] Initializing Clock...
+[3085] [INF] [CLK] External RTC found[BOOT] Clock initialized
+[3086] [INF] [BOOT] Hardware detected: H716
+[BOOT] Initializing Storage...
+[3096] [SD] SD card detected
+[3134] [DBG] [RBS] Recent books loaded from file (6 entries)
+[3160] [DBG] [RST] Reading stats loaded from file (2 books)
+[3200] [DBG] [UI] Using Classic theme
+[3200] [DBG] [MAIN] Starting CrossPoint version 1.5.5-h716
+[3202] [INF] [PDR] Initializing EPD_Painter...
+[3353] [INF] [PDR] Setting 16 gray levels...
+[3375] [INF] [PDR] Setting quality to NORMAL...
+[3376] [INF] [PDR] Allocating planes...
+[3394] [INF] [PDR] Allocated 518400 bytes for painter FB in SPIRAM
+[3692] [INF] [PDR] PainterDriver ready.
+[3692] [DBG] [MAIN] Display initialized
+[3701] [DBG] [SDREG] Fonts directory not found: /.fonts
+[3707] [DBG] [SDREG] Discovery complete: 0 families
+[3707] [DBG] [SDFS] SD font system ready (0 families discovered)
+[3707] [DBG] [MAIN] Fonts setup
+[3708] [DBG] [ACT] Entering activity: Boot
+[3714] [DBG] [GFX] Time = 6 ms from clearScreen to displayBuffer
+[3803] [INF] [PDR] syncToPainter: Levels [0]=505280 [5]=0 [10]=0 [15]=13120 (Ink-Priority 4->16 Merge)
+[3850] [DBG] [ACT] Exiting activity: Boot
+[3851] [DBG] [ACT] Entering activity: Home
+[3884] [DBG] [GFX] No glyph for codepoint U+30D3
+[3885] [DBG] [GFX] No glyph for codepoint U+30B8
+[3885] [DBG] [GFX] No glyph for codepoint U+30E5
+[3885] [DBG] [GFX] No glyph for codepoint U+30A2
+[3885] [DBG] [GFX] No glyph for codepoint U+30EB
+[3885] [DBG] [GFX] No glyph for codepoint U+30CC
+[3885] [DBG] [GFX] No glyph for codepoint U+30FC
+[3885] [DBG] [GFX] No glyph for codepoint U+30C9
+[3885] [DBG] [GFX] No glyph for codepoint U+30FB
+[3885] [DBG] [GFX] No glyph for codepoint U+30DD
+[3885] [DBG] [GFX] No glyph for codepoint U+30FC
+[3885] [DBG] [GFX] No glyph for codepoint U+30BA
+[3886] [DBG] [GFX] No glyph for codepoint U+9577
+[3886] [DBG] [GFX] No glyph for codepoint U+8C37
+[3886] [DBG] [GFX] No glyph for codepoint U+5DDD
+[3886] [DBG] [GFX] No glyph for codepoint U+6717
+[3887] [DBG] [GFX] No glyph for codepoint U+3064
+[3887] [DBG] [GFX] No glyph for codepoint U+307C
+[3887] [DBG] [GFX] No glyph for codepoint U+307F
+[3899] [DBG] [GFX] Time = 44 ms from clearScreen to displayBuffer
+[3998] [INF] [PDR] syncToPainter: Levels [0]=407050 [5]=0 [10]=0 [15]=111350 (Ink-Priority 4->16 Merge)
+[4199] [DBG] [GFX] No glyph for codepoint U+30D3
+[4200] [DBG] [GFX] No glyph for codepoint U+30B8
+[4200] [DBG] [GFX] No glyph for codepoint U+30E5
+[4200] [DBG] [GFX] No glyph for codepoint U+30A2
+[4200] [DBG] [GFX] No glyph for codepoint U+30EB
+[4200] [DBG] [GFX] No glyph for codepoint U+30CC
+[4200] [DBG] [GFX] No glyph for codepoint U+30FC
+[4200] [DBG] [GFX] No glyph for codepoint U+30C9
+[4200] [DBG] [GFX] No glyph for codepoint U+30FB
+[4200] [DBG] [GFX] No glyph for codepoint U+30DD
+[4200] [DBG] [GFX] No glyph for codepoint U+30FC
+[4200] [DBG] [GFX] No glyph for codepoint U+30BA
+[4201] [DBG] [GFX] No glyph for codepoint U+9577
+[4201] [DBG] [GFX] No glyph for codepoint U+8C37
+[4201] [DBG] [GFX] No glyph for codepoint U+5DDD
+[4201] [DBG] [GFX] No glyph for codepoint U+6717
+[4202] [DBG] [GFX] No glyph for codepoint U+3064
+[4202] [DBG] [GFX] No glyph for codepoint U+307C
+[4202] [DBG] [GFX] No glyph for codepoint U+307F
+[4214] [DBG] [GFX] Time = 43 ms from clearScreen to displayBuffer
+[4316] [INF] [PDR] syncToPainter: Levels [0]=407050 [5]=0 [10]=0 [15]=111350 (Ink-Priority 4->16 Merge)
+[4455] [DBG] [GFX] No glyph for codepoint U+30D3
+[4456] [DBG] [GFX] No glyph for codepoint U+30B8
+[4456] [DBG] [GFX] No glyph for codepoint U+30E5
+[4456] [DBG] [GFX] No glyph for codepoint U+30A2
+[4456] [DBG] [GFX] No glyph for codepoint U+30EB
+[4456] [DBG] [GFX] No glyph for codepoint U+30CC
+[4456] [DBG] [GFX] No glyph for codepoint U+30FC
+[4456] [DBG] [GFX] No glyph for codepoint U+30C9
+[4456] [DBG] [GFX] No glyph for codepoint U+30FB
+[4457] [DBG] [GFX] No glyph for codepoint U+30DD
+[4458] [DBG] [GFX] No glyph for codepoint U+30FC
+[4458] [DBG] [GFX] No glyph for codepoint U+30BA
+[4458] [DBG] [GFX] No glyph for codepoint U+9577
+[4458] [DBG] [GFX] No glyph for codepoint U+8C37
+[4459] [DBG] [GFX] No glyph for codepoint U+5DDD
+[4459] [DBG] [GFX] No glyph for codepoint U+6717
+[4459] [DBG] [GFX] No glyph for codepoint U+3064
+[4459] [DBG] [GFX] No glyph for codepoint U+307C
+[4459] [DBG] [GFX] No glyph for codepoint U+307F
+[4470] [DBG] [GFX] Time = 42 ms from clearScreen to displayBuffer
+[4566] [INF] [PDR] syncToPainter: Levels [0]=407050 [5]=0 [10]=0 [15]=111350 (Ink-Priority 4->16 Merge)
+[5081] [DBG] [ACT] Exiting activity: Home
+[5082] [DBG] [ACT] Entering activity: Settings
+[5091] [DBG] [DREG] No /dictionaries directory on SD card
+[5100] [DBG] [DREG] No /.dictionaries directory on SD card
+[5125] [DBG] [GFX] Time = 21 ms from clearScreen to displayBuffer
+[5222] [INF] [PDR] syncToPainter: Levels [0]=500285 [5]=0 [10]=0 [15]=18115 (Ink-Priority 4->16 Merge)
+[6681] [DBG] [GFX] Time = 22 ms from clearScreen to displayBuffer
+[6776] [INF] [PDR] syncToPainter: Levels [0]=488441 [5]=0 [10]=0 [15]=29959 (Ink-Priority 4->16 Merge)
+[6836] [DBG] [GFX] Time = 177 ms from clearScreen to displayBuffer
+[6935] [INF] [PDR] syncToPainter: Levels [0]=478089 [5]=0 [10]=0 [15]=40311 (Ink-Priority 4->16 Merge)
+[7926] [DBG] [GFX] Time = 1267 ms from clearScreen to displayBuffer
+[8093] [INF] [PDR] syncToPainter: Levels [0]=477907 [5]=0 [10]=0 [15]=40493 (Ink-Priority 4->16 Merge)
+[8093] [INF] [PDR] Middle-tier inverted flash triggered (BW)
+[8191] [DBG] [DREG] No /dictionaries directory on SD card
+[8200] [DBG] [DREG] No /.dictionaries directory on SD card
+[8202] [DBG] [LOOP] New max loop duration: 261 ms (activity: 258 ms)
+[8523] [DBG] [GFX] Time = 24 ms from clearScreen to displayBuffer
+[8624] [INF] [PDR] syncToPainter: Levels [0]=488369 [5]=0 [10]=0 [15]=30031 (Ink-Priority 4->16 Merge)
+[8624] [INF] [PDR] Ghost clear triggered (BW, HARD)

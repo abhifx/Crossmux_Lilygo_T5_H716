@@ -202,7 +202,7 @@ void EpubReaderActivity::onEnter() {
   // Configure screen orientation and color depth based on settings
   // NOTE: This affects layout math and must be applied before any render calls.
   ReaderUtils::applyOrientation(renderer, SETTINGS.orientation);
-  ActivityUtils::applyColorDepth(renderer, SETTINGS.colorDepth);
+  ActivityUtils::applyColorDepth(renderer, SETTINGS.colorDepth, SETTINGS.ditherMode);
 
   epub->setupCacheDir();
 

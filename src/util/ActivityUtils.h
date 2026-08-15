@@ -11,7 +11,7 @@ namespace ActivityUtils {
 /**
  * Configure renderer color depth based on user settings.
  */
-void applyColorDepth(GfxRenderer& renderer, uint8_t depth);
+void applyColorDepth(GfxRenderer& renderer, uint8_t depth, uint8_t dither = 1);
 
 /**
  * Standard setup for a rendering frame. Handles 8-bit mode for H716.

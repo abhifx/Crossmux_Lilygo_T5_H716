@@ -351,7 +351,7 @@ void enterDeepSleep(bool fromTimeout = false) {
 bool setupDisplayAndFonts(bool seamless = false) {
   display.begin(seamless);
   renderer.begin(display.getInternalGrayBuffer());
-  ActivityUtils::applyColorDepth(renderer, SETTINGS.colorDepth);
+  ActivityUtils::applyColorDepth(renderer, SETTINGS.colorDepth, SETTINGS.ditherMode);
   activityManager.begin();
   LOG_DBG("MAIN", "Display initialized");
 
@@ -487,9 +487,8 @@ void setup() {
       }
       break;
     case HalGPIO::WakeupReason::AfterUSBPower:
-      // If USB power caused a cold boot, go back to sleep
       LOG_DBG("MAIN", "Wakeup reason: After USB Power");
-      powerManager.startDeepSleep(gpio);
+      // H716: Don't force sleep on USB power-up, as it interferes with development/charging boots.
       break;
     case HalGPIO::WakeupReason::AfterFlash:
       // After flashing, just proceed to boot
@@ -638,9 +637,7 @@ void loop() {
   halClock.update();
 
   renderer.setFadingFix(SETTINGS.fadingFix);
-  if (SETTINGS.colorDepth == CrossPointSettings::BIT_1) renderer.setColorDepth(1);
-  else if (SETTINGS.colorDepth == CrossPointSettings::BIT_4) renderer.setColorDepth(4);
-  else renderer.setColorDepth(2);
+  ActivityUtils::applyColorDepth(renderer, SETTINGS.colorDepth, SETTINGS.ditherMode);
 
   if (Serial && millis() - lastMemPrint >= 10000) {
     LOG_INF("MEM", "Free: %d bytes, Total: %d bytes, Min Free: %d bytes, MaxAlloc: %d bytes", ESP.getFreeHeap(),

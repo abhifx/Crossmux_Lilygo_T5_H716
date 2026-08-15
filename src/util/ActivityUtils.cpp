@@ -5,7 +5,7 @@
 
 namespace ActivityUtils {
 
-void applyColorDepth(GfxRenderer& renderer, const uint8_t depth) {
+void applyColorDepth(GfxRenderer& renderer, const uint8_t depth, const uint8_t dither) {
   uint8_t bits = 4;
   switch (depth) {
     case CrossPointSettings::COLOR_DEPTH::BIT_1:
@@ -21,11 +21,12 @@ void applyColorDepth(GfxRenderer& renderer, const uint8_t depth) {
       break;
   }
   renderer.setColorDepth(bits);
-  LOG_INF("ACT", "Applied color depth: %d-bit (enum=%d)", bits, depth);
+  renderer.setDitherMode(dither);
+  LOG_INF("ACT", "Applied color depth: %d-bit dither: %d (enum=%d)", bits, dither, depth);
 }
 
 void prepareRender(GfxRenderer& renderer) {
-  if (renderer.supportsGrayscale8Bit() && renderer.getColorDepth() >= 2) {
+  if (renderer.supportsGrayscale8Bit()) {
     renderer.setRenderMode(GfxRenderer::GRAYSCALE_8BIT);
   }
   renderer.clearScreen(0xFF);
