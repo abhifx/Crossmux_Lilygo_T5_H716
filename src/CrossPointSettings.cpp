@@ -231,6 +231,7 @@ void CrossPointSettings::toJson(JsonDocument& doc) const {
     doc["dictionaryName"] = dictionaryName;
   }
   doc["otaNightlyEnabled"] = otaNightlyEnabled;
+  doc["imageDithering"] = imageDithering;
 
   // Language -- managed by LanguageSelectActivity, not in SettingsList.
   // Stored as ISO code string ("EN", "DE", ...) for stability across enum reorders.
@@ -594,6 +595,7 @@ ReaderRenderSpec CrossPointSettings::readerRenderSpec(const uint16_t viewportWid
   spec.hyphenationEnabled = hyphenationEnabled != 0;
   spec.embeddedStyle = embeddedStyle != 0;
   spec.imageRendering = imageRendering;
+  spec.imageDithering = imageDithering != 0;
   spec.focusReadingEnabled = focusReadingEnabled != 0;
   return spec;
 }

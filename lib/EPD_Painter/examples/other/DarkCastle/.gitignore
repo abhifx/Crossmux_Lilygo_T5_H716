@@ -1,0 +1,4 @@
+# Generated from your own copy of the game by tools/dc_extract.py.
+# No Dark Castle data belongs in the repository.
+dc_gfx_screens.cpp
+dc_gfx_sprites.cpp

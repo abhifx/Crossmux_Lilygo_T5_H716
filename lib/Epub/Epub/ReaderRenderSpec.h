@@ -20,5 +20,6 @@ struct ReaderRenderSpec {
   bool hyphenationEnabled = false;
   bool embeddedStyle = true;
   uint8_t imageRendering = 0;
+  bool imageDithering = false;
   bool focusReadingEnabled = false;
 };

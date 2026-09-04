@@ -384,6 +384,8 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   uint8_t buddyClaimed = 0;
   // Image rendering mode in EPUB reader
   uint8_t imageRendering = IMAGES_DISPLAY;
+  // Image dithering setting in reader (0 = disabled, 1 = enabled)
+  uint8_t imageDithering = 0;
   // Tilt-based page turning (X3 only — requires QMI8658 IMU)
   uint8_t tiltPageTurn = TILT_OFF;
   // Touch screen reader zones/gestures on boards with a touch controller.

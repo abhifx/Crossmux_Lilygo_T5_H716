@@ -205,6 +205,11 @@ inline void displayBaseWithRefreshCycle(const GfxRenderer& renderer, int& pagesU
 // Kept as a template to avoid std::function overhead; instantiated once per reader type.
 template <typename RenderFn>
 void renderAntiAliased(GfxRenderer& renderer, RenderFn&& renderFn) {
+#if FREEINK_DRIVER_EPD_PAINTER
+  (void)renderer;
+  (void)renderFn;
+  return;
+#else
   if (!renderer.storeBwBuffer()) {
     LOG_ERR("READER", "Failed to store BW buffer for anti-aliasing");
     // A combined-base panel may still hold a deferred B/W activation; flush it
@@ -218,15 +223,12 @@ void renderAntiAliased(GfxRenderer& renderer, RenderFn&& renderFn) {
   renderFn();
   renderer.copyGrayscaleLsbBuffers();
 
-  renderer.clearScreen(0x00);
-  renderer.setRenderMode(GfxRenderer::GRAYSCALE_MSB);
-  renderFn();
-  renderer.copyGrayscaleMsbBuffers();
-
+  // Skip second pass (MSB) for single-pass fast image/AA rendering
   renderer.displayGrayBuffer();
   renderer.setRenderMode(GfxRenderer::BW);
 
   renderer.restoreBwBuffer();
+#endif
 }
 
 struct BackNavCallback {

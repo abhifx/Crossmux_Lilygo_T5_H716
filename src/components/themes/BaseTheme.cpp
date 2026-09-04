@@ -61,11 +61,7 @@ void BaseTheme::drawBatteryOutline(const GfxRenderer& renderer, int x, int y, in
 
 void BaseTheme::drawDitherMask(const GfxRenderer& renderer, const int x, const int y, const int width,
                                const int height) {
-  for (int py = y; py < y + height; py++) {
-    for (int px = x; px < x + width; px++) {
-      if ((px + py) % 2 == 0) renderer.drawPixel(px, py, false);
-    }
-  }
+  (void)renderer; (void)x; (void)y; (void)width; (void)height;
 }
 
 void BaseTheme::drawBatteryLightningBolt(const GfxRenderer& renderer, int boltX, int boltY) {

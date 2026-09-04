@@ -27,6 +27,8 @@ class ImageBlock final : public Block {
   bool needsDecode() const;
   bool ensureExtracted();
   void renderPlaceholder(GfxRenderer& renderer, int x, int y) const;
+  static void setUseDithering(bool enable) { globalUseDithering = enable; }
+  static bool getUseDithering() { return globalUseDithering; }
   static void clearSessionRenderFailures();
 
   // A page render draws its image up to ~13 times (BW double-refresh plus every
@@ -61,6 +63,7 @@ class ImageBlock final : public Block {
 
   static void* extractCtx;
   static ExtractFn extractFn;
+  static bool globalUseDithering;
 
   bool renderInternal(GfxRenderer& renderer, int x, int y, PixelCachePolicy cachePolicy, DecodeOutput output);
 };

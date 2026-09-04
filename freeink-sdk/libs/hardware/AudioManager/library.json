@@ -1,0 +1,10 @@
+{
+  "name": "AudioManager",
+  "version": "1.0.0",
+  "description": "FreeInk audio output: WAV or pull-based PCM playback through an I2S codec described by BoardConfig::ACTIVE.audio. Supports ES8388 and ES8311 control paths.",
+  "keywords": "audio, i2s, es8388, es8311, wav, pcm, eink",
+  "authors": [{"name": "FreeInk SDK Contributors"}],
+  "dependencies": {},
+  "platforms": "espressif32",
+  "frameworks": ["arduino"]
+}

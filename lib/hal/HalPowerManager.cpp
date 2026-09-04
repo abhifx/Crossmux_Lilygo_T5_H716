@@ -78,6 +78,20 @@ void HalPowerManager::setPowerSaving(bool enabled) {
 }
 
 void HalPowerManager::startDeepSleep(HalGPIO& gpio) const {
+  // Ensure radios are completely powered down before sleep
+  WiFi.disconnect(true);
+  WiFi.mode(WIFI_OFF);
+  btStop();
+
+  // Hold SD card CS pin HIGH so SPI SD cards don't float active in deep sleep
+  if (BoardConfig::ACTIVE.sd.cs >= 0) {
+    const auto sdCsPin = static_cast<gpio_num_t>(BoardConfig::ACTIVE.sd.cs);
+    gpio_hold_dis(sdCsPin);
+    pinMode(BoardConfig::ACTIVE.sd.cs, OUTPUT);
+    digitalWrite(BoardConfig::ACTIVE.sd.cs, HIGH);
+    gpio_hold_en(sdCsPin);
+  }
+
 #if FREEINK_DEVICE_WAVESHARE_EPAPER_397
   Waveshare397Power::waitForPowerButtonRelease();
 #endif

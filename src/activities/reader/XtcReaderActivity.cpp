@@ -218,6 +218,20 @@ void XtcReaderActivity::renderPage() {
       }
     }
 
+#if FREEINK_DRIVER_EPD_PAINTER
+    renderer.clearScreen();
+    for (uint16_t y = 0; y < pageHeight; y++) {
+      for (uint16_t x = 0; x < pageWidth; x++) {
+        if (getPixelValue(x, y) >= 1) {
+          renderer.drawPixel(x, y, true);
+        }
+      }
+    }
+    ReaderUtils::displayWithRefreshCycle(renderer, pagesUntilFullRefresh);
+    free(pageBuffer);
+    LOG_DBG("XTR", "Rendered page %lu/%lu", currentPage + 1, xtc->getPageCount());
+    return;
+#else
     if (pagesUntilFullRefresh <= 1) {
       // Periodic ghost cleanup: scrub via the normal path, then run the
       // settle flavor of the grayscale base pass (DTM planes are equal after
@@ -274,6 +288,7 @@ void XtcReaderActivity::renderPage() {
 
     LOG_DBG("XTR", "Rendered page %lu/%lu (2-bit grayscale)", currentPage + 1, xtc->getPageCount());
     return;
+#endif
   } else {
     const size_t srcRowBytes = (pageWidth + 7) / 8;
 

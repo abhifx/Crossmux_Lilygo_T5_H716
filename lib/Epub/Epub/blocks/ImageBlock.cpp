@@ -23,6 +23,7 @@ ImageBlock::ImageBlock(const std::string& imagePath, const std::string& srcPath,
 
 void* ImageBlock::extractCtx = nullptr;
 ImageBlock::ExtractFn ImageBlock::extractFn = nullptr;
+bool ImageBlock::globalUseDithering = false;
 
 void ImageBlock::setExtractor(void* ctx, ExtractFn fn) {
   extractCtx = ctx;
@@ -448,7 +449,7 @@ bool ImageBlock::renderInternal(GfxRenderer& renderer, const int x, const int y,
   config.maxWidth = width;
   config.maxHeight = height;
   config.useGrayscale = true;
-  config.useDithering = true;
+  config.useDithering = globalUseDithering;
   config.performanceMode = false;
   config.useExactDimensions = true;  // Use pre-calculated dimensions to avoid rounding mismatches
   config.cachePath = cachePath;      // Enable caching during decode

@@ -235,6 +235,7 @@ bool EpubReaderActivity::loadBook() {
   epub = std::move(loadedEpub);
 
   ImageBlock::clearSessionRenderFailures();
+  ImageBlock::setUseDithering(SETTINGS.imageDithering != 0);
   ImageBlock::setExtractor(epub.get(), [](void* ctx, const char* src, const char* dest) {
     return static_cast<Epub*>(ctx)->extractItemToFile(src, dest);
   });
@@ -1774,7 +1775,11 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
   forcedRefreshPending = false;
   const bool cleanImageBasePending = manualRefreshPending || pagesUntilFullRefresh <= 1;
   // Night mode renders crisp B/W; the SDK disables every grayscale display path.
+#if FREEINK_DRIVER_EPD_PAINTER
+  const bool grayscaleEnabled = false;
+#else
   const bool grayscaleEnabled = !renderer.isInverted();
+#endif
   const bool needsTextGrayscale = grayscaleEnabled && SETTINGS.textAntiAliasing;
   const bool needsAnyGrayscale = grayscaleEnabled && (SETTINGS.textAntiAliasing || pageHasImages);
   const bool tiledGrayscale = needsAnyGrayscale && renderer.supportsStripGrayscale();
@@ -1966,21 +1971,8 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
         }
         const auto tGrayLsb = millis();
 
-        renderer.setRenderMode(GfxRenderer::GRAYSCALE_MSB);
-        for (int y = 0; y < gh; y += STRIP_ROWS) {
-          if (activityManager.isSwitchPending()) {
-            renderer.setRenderMode(GfxRenderer::BW);
-            renderer.cleanupGrayscaleWithFrameBuffer();
-            return;
-          }
-          const int rows = (gh - y < STRIP_ROWS) ? (gh - y) : STRIP_ROWS;
-          renderer.beginStripTarget(scratch.get(), y, rows);
-          renderer.clearScreen(0x00);
-          renderGrayscalePass();
-          renderer.endStripTarget();
-          renderer.writeGrayscalePlaneStrip(false, scratch.get(), y, rows);
-        }
-        const auto tGrayMsb = millis();
+        // Skip second pass (MSB) for single-pass fast image rendering
+        const auto tGrayMsb = tGrayLsb;
 
         renderer.setRenderMode(GfxRenderer::BW);
         renderer.displayGrayBuffer();
@@ -2018,18 +2010,9 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
         return;
       }
 
-      renderer.clearScreen(0x00);
-      renderer.setRenderMode(GfxRenderer::GRAYSCALE_MSB);
-      renderGrayscalePass();
-      renderer.copyGrayscaleMsbBuffers();
-      const auto tGrayMsb = millis();
+      // Skip second pass (MSB) for single-pass fast image rendering
+      const auto tGrayMsb = tGrayLsb;
 
-      // Abort before the expensive grayscale display if a push/pop is pending
-      if (activityManager.isSwitchPending()) {
-        renderer.setRenderMode(GfxRenderer::BW);
-        renderer.restoreBwBuffer();
-        return;
-      }
       renderer.displayGrayBuffer();
       const auto tGrayDisplay = millis();
       renderer.setRenderMode(GfxRenderer::BW);

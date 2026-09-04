@@ -39,7 +39,10 @@ class GfxRenderer {
   // framebuffer plane. Keep every 2-bit renderer on this single table.
   static constexpr TwoBitPixel mapTwoBitPixel(const RenderMode mode, const uint8_t value) {
     if (mode == BW) return {value < 3, true};
-#if FREEINK_DEVICE_EEGO_A4
+#if FREEINK_DRIVER_EPD_PAINTER
+    if (mode == GRAYSCALE_MSB) return {value == 0 || value == 1, false};
+    return {value == 0 || value == 2, false};
+#elif FREEINK_DEVICE_EEGO_A4
     if (mode == GRAYSCALE_MSB) return {value == 0 || value == 1, true};
     return {value == 0 || value == 2, true};
 #else
@@ -488,7 +491,14 @@ class GfxRenderer {
                           size_t bufSize) const;
 };
 
-#if FREEINK_DEVICE_EEGO_A4
+#if FREEINK_DRIVER_EPD_PAINTER
+static_assert(GfxRenderer::mapTwoBitPixel(GfxRenderer::GRAYSCALE_MSB, 0).draw);
+static_assert(GfxRenderer::mapTwoBitPixel(GfxRenderer::GRAYSCALE_MSB, 1).draw);
+static_assert(!GfxRenderer::mapTwoBitPixel(GfxRenderer::GRAYSCALE_MSB, 2).draw);
+static_assert(GfxRenderer::mapTwoBitPixel(GfxRenderer::GRAYSCALE_LSB, 0).draw);
+static_assert(!GfxRenderer::mapTwoBitPixel(GfxRenderer::GRAYSCALE_LSB, 1).draw);
+static_assert(GfxRenderer::mapTwoBitPixel(GfxRenderer::GRAYSCALE_LSB, 2).draw);
+#elif FREEINK_DEVICE_EEGO_A4
 static_assert(GfxRenderer::mapTwoBitPixel(GfxRenderer::GRAYSCALE_MSB, 0).draw);
 static_assert(GfxRenderer::mapTwoBitPixel(GfxRenderer::GRAYSCALE_MSB, 1).draw);
 static_assert(!GfxRenderer::mapTwoBitPixel(GfxRenderer::GRAYSCALE_MSB, 2).draw);

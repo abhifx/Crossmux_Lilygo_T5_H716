@@ -989,12 +989,12 @@ void GfxRenderer::drawPixelDither<Color::White>(const int x, const int y) const 
 
 template <>
 void GfxRenderer::drawPixelDither<Color::LightGray>(const int x, const int y) const {
-  drawPixel(x, y, x % 2 == 0 && y % 2 == 0);
+  drawPixel(x, y, false);
 }
 
 template <>
 void GfxRenderer::drawPixelDither<Color::DarkGray>(const int x, const int y) const {
-  drawPixel(x, y, (x + y) % 2 == 0);  // TODO: maybe find a better pattern?
+  drawPixel(x, y, true);
 }
 
 void GfxRenderer::fillRectDither(const int x, const int y, const int width, const int height, Color color) const {
@@ -1088,94 +1088,31 @@ void GfxRenderer::fillRectImpl(const int x, const int y, const int width, const 
       }
     }
   } else {
-    // Dither (LightGray / DarkGray). Both patterns have period 2 in logical
-    // (x, y), so per physical row we precompute one byte that represents the
-    // pattern across an 8-pixel stretch — every full byte in the row uses
-    // that same value.
-    //
-    // dlxPerPhyX / dlyPerPhyX: how logical (x, y) change as phyX increments
-    // along a physical row. Derived from inverting rotateCoordinates.
-    int dlxPerPhyX = 0, dlyPerPhyX = 0;
-    switch (orientation) {
-      case Portrait:
-        dlxPerPhyX = 0;
-        dlyPerPhyX = 1;
-        break;
-      case PortraitInverted:
-        dlxPerPhyX = 0;
-        dlyPerPhyX = -1;
-        break;
-      case LandscapeClockwise:
-        dlxPerPhyX = -1;
-        dlyPerPhyX = 0;
-        break;
-      case LandscapeCounterClockwise:
-        dlxPerPhyX = 1;
-        dlyPerPhyX = 0;
-        break;
-    }
-
-    // The dither pattern has period 2 in logical space, and each orientation
-    // maps py to logical coords with a fixed parity relationship. The
-    // blackMask byte therefore repeats with period 2 in py. Precompute both
-    // variants outside the row loop to eliminate the per-row switch + 8-bit
-    // construction loop.
-    uint8_t blackMasks[2];
-    for (int parityIdx = 0; parityIdx < 2; ++parityIdx) {
-      const int samplePy = phyY0 + parityIdx;
-      int lxBase = 0, lyBase = 0;
-      switch (orientation) {
-        case Portrait:
-          lxBase = panelHeight - 1 - samplePy;
-          lyBase = byteStart * 8;
-          break;
-        case PortraitInverted:
-          lxBase = samplePy;
-          lyBase = panelWidth - 1 - byteStart * 8;
-          break;
-        case LandscapeClockwise:
-          lxBase = panelWidth - 1 - byteStart * 8;
-          lyBase = panelHeight - 1 - samplePy;
-          break;
-        case LandscapeCounterClockwise:
-          lxBase = byteStart * 8;
-          lyBase = samplePy;
-          break;
-      }
-      uint8_t mask = 0;
-      for (int b = 0; b < 8; ++b) {
-        const int lx = lxBase + b * dlxPerPhyX;
-        const int ly = lyBase + b * dlyPerPhyX;
-        bool isBlack;
-        if constexpr (C == Color::LightGray) {
-          isBlack = ((lx & 1) == 0) && ((ly & 1) == 0);
-        } else {  // DarkGray
-          isBlack = (((lx + ly) & 1) == 0);
-        }
-        if (isBlack) mask |= static_cast<uint8_t>(1u << (7 - b));
-      }
-      blackMasks[samplePy & 1] = mask;
-    }
-
+    // Solid fill for LightGray (white) and DarkGray (black) - no dithering
+    const uint8_t fillByte = (C == Color::DarkGray) ? 0x00u : 0xFFu;
     for (int py = phyY0; py <= phyY1; ++py) {
-      const uint8_t blackMask = blackMasks[py & 1];
-      const uint8_t whiteMask = static_cast<uint8_t>(~blackMask);
-
-      // Dither writes BOTH inks (the slow path called drawPixel for every
-      // pixel — setting or clearing — so we must do the same). Inside the
-      // rect mask: write whiteMask (1s where white, 0s where black). Outside
-      // the rect mask: leave the framebuffer untouched.
       uint8_t* row = target + static_cast<int32_t>(py - originY) * panelStride;
       if (byteStart == byteEnd) {
-        const uint8_t rectMask = headMask & tailMask;
-        row[byteStart] = static_cast<uint8_t>((row[byteStart] & ~rectMask) | (rectMask & whiteMask));
-      } else {
-        row[byteStart] = static_cast<uint8_t>((row[byteStart] & ~headMask) | (headMask & whiteMask));
-        if (byteEnd > byteStart + 1) {
-          // Period 2, so every full byte in this row is exactly whiteMask.
-          memset(row + byteStart + 1, whiteMask, byteEnd - byteStart - 1);
+        const uint8_t mask = headMask & tailMask;
+        if constexpr (C == Color::DarkGray) {
+          row[byteStart] &= static_cast<uint8_t>(~mask);
+        } else {
+          row[byteStart] |= mask;
         }
-        row[byteEnd] = static_cast<uint8_t>((row[byteEnd] & ~tailMask) | (tailMask & whiteMask));
+      } else {
+        if constexpr (C == Color::DarkGray) {
+          row[byteStart] &= static_cast<uint8_t>(~headMask);
+          if (byteEnd > byteStart + 1) {
+            memset(row + byteStart + 1, fillByte, byteEnd - byteStart - 1);
+          }
+          row[byteEnd] &= static_cast<uint8_t>(~tailMask);
+        } else {
+          row[byteStart] |= headMask;
+          if (byteEnd > byteStart + 1) {
+            memset(row + byteStart + 1, fillByte, byteEnd - byteStart - 1);
+          }
+          row[byteEnd] |= tailMask;
+        }
       }
     }
   }
@@ -1729,12 +1666,21 @@ static unsigned long start_ms = 0;
 
 void GfxRenderer::clearScreen(const uint8_t color) const {
   start_ms = millis();
+  uint8_t effColor = color;
+  if (renderMode != BW) {
+#if FREEINK_DRIVER_EPD_PAINTER
+    // On EPD_Painter, 1 bit = paper (white), 0 bit = ink (black).
+    // Grayscale passes call clearScreen(0x00) expecting to start with an empty (paper white) plane.
+    // Translate 0x00 -> 0xFF so paper stays white and non-drawn pixels don't turn into ink.
+    if (color == 0x00) effColor = 0xFF;
+#endif
+  }
   if (_stripActive) {
     // Clear only the active band's scratch, not the shared framebuffer.
-    memset(_stripBuf, color, static_cast<size_t>(panelWidthBytes) * _stripRows);
+    memset(_stripBuf, effColor, static_cast<size_t>(panelWidthBytes) * _stripRows);
     return;
   }
-  display.clearScreen(color);
+  display.clearScreen(effColor);
 }
 
 void GfxRenderer::beginStripTarget(uint8_t* scratch, int stripY0, int stripRows) const {

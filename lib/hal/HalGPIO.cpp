@@ -15,6 +15,10 @@
 #include "MurphyM4BatchPreference.h"
 #endif
 
+#if FREEINK_DEVICE_LILYGO
+#include <BoardT5S3.h>
+#endif
+
 #if FREEINK_DEVICE_X4PRO || FREEINK_DEVICE_WAVESHARE_EPAPER_397
 #include <soc/usb_serial_jtag_reg.h>
 #endif
@@ -170,6 +174,9 @@ void HalGPIO::begin() {
 #endif
 #if FREEINK_DEVICE_WAVESHARE_EPAPER_397
   InputManager::setButtonHook(wavesharePowerButtonHook);
+#endif
+#if FREEINK_DEVICE_LILYGO
+  BoardT5S3::begin();
 #endif
 #if FREEINK_DEVICE_MURPHY_M4
   _murphyM4Batch = loadMurphyM4Batch();
